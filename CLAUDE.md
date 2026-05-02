@@ -290,13 +290,13 @@ to be running at publish time.
 
 ### Phase 1 — Templates + Renderer
 
-- [ ] Project scaffold and package.json
-- [ ] educator template — cover, content, cta
-- [ ] challenger template — cover, content, cta
-- [ ] quicklist template — cover, content, cta
-- [ ] render.js — JSON to HTML to PNG via Puppeteer
-- [ ] Story format variants 1080×1920
-- [ ] Test all templates with sample JSON
+- [x] Project scaffold and package.json
+- [x] educator template — cover, content, cta
+- [x] challenger template — cover, content, cta
+- [x] quicklist template — cover, content, cta
+- [x] render.js — JSON to HTML to PNG via Puppeteer
+- [x] Story format variants 1080×1920
+- [x] Test all templates with sample JSON
 
 ### Phase 2 — Storage + Preview Server
 
