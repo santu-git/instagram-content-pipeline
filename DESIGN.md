@@ -109,6 +109,7 @@ Never use margin-top auto on zone elements directly.
 ### educator (bg: #FAFAFA)
 - Accent line: saffron
 - Slide number: saffron
+- Tag label color: saffron #D4860A
 - Headline: ink (#1C1C1E)
 - Body: ink-soft (#3A3A3C)
 - Handle: ink-muted (#8E8E93)
@@ -116,13 +117,15 @@ Never use margin-top auto on zone elements directly.
 ### challenger (bg: #EDE9E1)
 - Accent line: moss (#4A5240)
 - Slide number: moss
+- Tag label color: moss #4A5240
 - Headline: ink (#1C1C1E)
-- Body: ink-soft (#3A3A3C)  
+- Body: ink-soft (#3A3A3C)
 - Handle: ink-muted (#8E8E93)
 
 ### quicklist (bg: #4A5240)
 - Accent line: saffron
 - Slide number: saffron (extra large, decorative)
+- Tag label color: saffron #D4860A
 - Headline: #FAFAFA (white)
 - Body: #EDE9E1 (warm white)
 - Handle: saffron (#D4860A)
