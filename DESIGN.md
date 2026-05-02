@@ -47,6 +47,8 @@ BOTTOM → @handle
 TOP    → slide number (saffron, large) + thin divider
 MIDDLE → headline + body text
 BOTTOM → @handle
+Saffron horizontal rule: width 100% of content area,
+height 1px exactly. Use width: 100% not fixed pixels.
 
 ### cta
 TOP    → accent line
@@ -71,6 +73,8 @@ BOTTOM → @handle (saffron color)
 - Handle            : pinned 72px from bottom edge, outside the content block
 - Rule width        : 100% of content area — use width: 100% on the rule element,
                       not a fixed pixel value. Height: 1px exactly.
+- Slide number gap  : 12px fixed between slide number and saffron rule.
+                      Use margin-bottom: 12px on the slide number element.
 
 ### cta
 - Accent line       : top-left, 72px from top edge (top zone, standalone)
@@ -81,53 +85,24 @@ BOTTOM → @handle (saffron color)
 
 ## Layout Implementation Rules
 
-All slides use a three-zone vertical layout:
+Proven pattern for Puppeteer Chromium rendering.
+Use position absolute on all zones, not flexbox
+on the slide container.
 
-TOP ZONE
-Contains: tag label and accent line (cover),
-          slide number and rule (content),
-          accent line only (cta)
-Behaviour: sits at top of slide naturally at 72px from edge
+Slide container : position relative, 1080x1080px,
+                  background color per template
+Top zone        : position absolute, top 72px, left 72px
+Middle zone     : position absolute, top 160px,
+                  bottom 120px, left 72px, right 72px,
+                  display flex, flex-direction column,
+                  align-items flex-start
+Inner content   : margin auto 0 on a wrapper div
+                  inside middle zone
+Bottom zone     : position absolute, bottom 72px,
+                  left 72px
 
-MIDDLE ZONE
-Contains: main content — headline, body, subtext or cta text
-Behaviour: occupies all remaining vertical space between
-           top and bottom zones. Content is vertically
-           centered within this zone. Body text
-           max-width 780px.
-
-BOTTOM ZONE
-Contains: @handle on all slides
-Behaviour: pinned to bottom of slide at 72px from edge
-
-Implementation note for Claude Code:
-Use flexbox column with justify-content space-between on
-the slide container. Give middle zone flex:1 with its own
-justify-content center. Never use absolute positioning
-or margin-top auto to achieve vertical placement.
-
-Puppeteer Layout Note:
-Centering is achieved via absolute positioning with
-explicit top/bottom bounds on the middle zone, not flexbox
-justify-content. Middle zone: top 160px, bottom 120px.
-Inner content centered using margin auto 0 on a wrapper div.
-This is the proven pattern for Puppeteer Chromium rendering.
-
-Proven Puppeteer Centering Pattern:
-- Use position absolute on all zones, not flexbox
-- Top zone    : position absolute, top 72px, left 72px
-- Middle zone : position absolute, top 160px, bottom 120px,
-                left 72px, right 72px,
-                display flex, flex-direction column,
-                align-items flex-start
-- Inner content: margin auto 0 on wrapper div
-- Bottom zone : position absolute, bottom 72px, left 72px
-- Slide       : position relative, width 1080px, height 1080px
-
-Do NOT use flexbox justify-content on the slide container.
-Do NOT use margin-top auto on zones.
-Puppeteer Chromium ignores justify-content on
-absolutely positioned flex containers.
+Never use flexbox justify-content on the slide container.
+Never use margin-top auto on zone elements directly.
 
 ## Template-Specific Rules
 
@@ -153,7 +128,10 @@ absolutely positioned flex containers.
 - Handle: saffron (#D4860A)
 
 ## Puppeteer Render Settings
-viewport  : 1080 × 1080
-deviceScaleFactor: 1 (2x causes absolute positioning offset in Puppeteer Chromium)
-format    : PNG
-fullPage  : false
+viewport          : 1080 × 1080
+deviceScaleFactor : 1
+                    deviceScaleFactor 2 causes absolute positioning offset in
+                    Puppeteer Chromium. 1x is correct and sufficient for
+                    Instagram 1080x1080.
+format            : PNG
+fullPage          : false
