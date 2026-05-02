@@ -1,0 +1,38 @@
+{
+  "id": "chl-001",
+  "template": "challenger",
+  "topic": "Your Roadmap Won't Save You",
+  "tag": "Unpopular Opinion",
+  "format": "post",
+  "handle": "yourusername",
+  "slides": [
+    {
+      "type": "cover",
+      "headline": "Your Roadmap Won't Save You",
+      "subtext": "Here's what actually works"
+    },
+    {
+      "type": "content",
+      "number": "01",
+      "headline": "Roadmaps create false comfort",
+      "body": "Following a roadmap feels like progress. But checking boxes is not the same as building things. Comfort is not growth."
+    },
+    {
+      "type": "content",
+      "number": "02",
+      "headline": "You learn by shipping, not reading",
+      "body": "One project you finish teaches you more than ten tutorials you complete. Finish something small. Then do it again."
+    },
+    {
+      "type": "content",
+      "number": "03",
+      "headline": "The roadmap you need is simpler",
+      "body": "Pick one language. Build one project. Show one person. Repeat. That is the whole roadmap."
+    },
+    {
+      "type": "cta",
+      "headline": "What are you building this week?",
+      "subline": "Drop it in the comments below"
+    }
+  ]
+}

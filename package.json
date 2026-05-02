@@ -1,0 +1,27 @@
+{
+  "name": "instagram-content-pipeline",
+  "version": "1.0.0",
+  "description": "Automated Instagram Carousel content pipeline for a personal EdTech brand",
+  "main": "scripts/render.js",
+  "scripts": {
+    "render": "node scripts/render.js",
+    "test-layout": "node -e \"const puppeteer=require('puppeteer'),path=require('path');(async()=>{const b=await puppeteer.launch({headless:true});const p=await b.newPage();await p.setViewport({width:1080,height:1080,deviceScaleFactor:2});await p.goto('file://'+path.resolve('layout-test.html'),{waitUntil:'networkidle0'});await p.screenshot({path:'layout-test.png',fullPage:false});await b.close();console.log('Done → layout-test.png');})();\"",
+    "upload": "node scripts/upload.js",
+    "preview": "node scripts/preview-server.js",
+    "mcp": "node mcp/server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "better-sqlite3": "^11.0.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "handlebars": "^4.7.8",
+    "puppeteer": "^24.15.0",
+    "uuid": "^11.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "ql-001",
+  "template": "quicklist",
+  "topic": "5 Git Commands You'll Use Every Day",
+  "tag": "Quick Tips",
+  "format": "post",
+  "handle": "yourusername",
+  "slides": [
+    {
+      "type": "cover",
+      "headline": "5 Git Commands You'll Use Every Day",
+      "subtext": "Save this before your next project"
+    },
+    {
+      "type": "content",
+      "number": "01",
+      "headline": "git status",
+      "body": "Shows what files you changed. Run this before anything else. Your single most used command."
+    },
+    {
+      "type": "content",
+      "number": "02",
+      "headline": "git add . && git commit",
+      "body": "Stage your changes and save a snapshot. Write a clear message — your future self will thank you."
+    },
+    {
+      "type": "content",
+      "number": "03",
+      "headline": "git push origin main",
+      "body": "Sends your local commits to GitHub. This is how your work reaches the cloud and your team."
+    },
+    {
+      "type": "content",
+      "number": "04",
+      "headline": "git pull",
+      "body": "Fetches the latest changes from the remote repo. Always pull before you start working for the day."
+    },
+    {
+      "type": "content",
+      "number": "05",
+      "headline": "git log --oneline",
+      "body": "Shows your commit history in a clean one-line format. Great for reviewing what you've done."
+    },
+    {
+      "type": "cta",
+      "headline": "Save this list for your next project",
+      "subline": "More dev tips every week"
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 1080px;
+  height: 1080px;
+  overflow: hidden;
+}
+.slide {
+  position: relative;
+  width: 1080px;
+  height: 1080px;
+  background: #FAFAFA;
+}
+.top {
+  position: absolute;
+  top: 72px;
+  left: 72px;
+}
+.middle {
+  position: absolute;
+  top: 160px;
+  bottom: 120px;
+  left: 72px;
+  right: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.bottom {
+  position: absolute;
+  bottom: 72px;
+  left: 72px;
+}
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="top">
+    <p style="color:#D4860A;font-size:56px;
+       font-family:monospace;">01</p>
+  </div>
+  <div class="middle">
+    <div style="margin: auto 0;">
+      <p style="color:#1C1C1E;font-size:52px;
+         font-family:serif;">This is the headline</p>
+    </div>
+  </div>
+  <div class="bottom">
+    <p style="color:#8E8E93;font-size:20px;
+       font-family:monospace;">@handle</p>
+  </div>
+</div>
+<script>
+  window.__debug = {
+    slideH: document.querySelector('.slide').offsetHeight,
+    middleTop: document.querySelector('.middle').offsetTop,
+    middleH: document.querySelector('.middle').offsetHeight,
+    contentTop: document.querySelector('.middle div').offsetTop,
+    contentH: document.querySelector('.middle div').offsetHeight
+  };
+</script>
+</body>
+</html>
