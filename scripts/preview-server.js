@@ -11,7 +11,7 @@ const DB_PATH = process.env.DB_PATH || './data/instagram-pipeline.db';
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.resolve('preview-ui')));
+app.use(express.static(path.resolve('preview-ui'), { index: false }));
 
 const s3 = new S3Client({
   endpoint: process.env.DO_SPACES_ENDPOINT,
@@ -26,6 +26,19 @@ const s3 = new S3Client({
 function getDb() {
   return new Database(path.resolve(DB_PATH));
 }
+
+// Dashboard — list of all posts
+app.get('/', (req, res) => {
+  res.sendFile(path.resolve('preview-ui', 'list.html'));
+});
+
+// API — all posts ordered newest first
+app.get('/api/posts', (req, res) => {
+  const db = getDb();
+  const posts = db.prepare('SELECT * FROM scheduled_posts ORDER BY created_at DESC').all();
+  db.close();
+  res.json(posts);
+});
 
 // Serve preview UI for any post ID
 app.get('/preview/:id', (req, res) => {
