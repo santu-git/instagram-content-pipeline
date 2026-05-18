@@ -300,13 +300,13 @@ to be running at publish time.
 
 ### Phase 2 — Storage + Preview Server
 
-- [ ] DigitalOcean Spaces bucket setup
-- [ ] SQLite database initialisation and schema migration
-- [ ] upload.js — upload PNGs to Spaces after rendering
-- [ ] Express preview server on DigitalOcean Droplet
-- [ ] Preview page UI showing all slides in sequence
-- [ ] Approve button
-- [ ] Edit metadata for caption and hashtags
+- [x] DigitalOcean Spaces bucket setup
+- [x] SQLite database initialisation and schema migration
+- [x] upload.js — upload PNGs to Spaces after rendering
+- [x] Express preview server on DigitalOcean Droplet
+- [x] Preview page UI showing all slides in sequence
+- [x] Approve button
+- [x] Edit metadata for caption and hashtags
 
 ### Phase 3 — MCP Server
 

@@ -3,15 +3,215 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview — Instagram Content Pipeline</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Preview</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <!-- Phase 2: Preview UI -->
-  <!-- Displays all carousel slides in sequence from Spaces CDN URLs -->
-  <!-- Includes approve button and caption/hashtag metadata editor -->
-  <div id="app">
-    <!-- TODO: implement in Phase 2 -->
+  <div class="layout">
+
+    <!-- 70% LEFT — slide viewer -->
+    <div class="left-panel">
+      <div class="post-header">
+        <div class="badges">
+          <span id="template-badge" class="badge"></span>
+          <span id="status-badge" class="badge"></span>
+        </div>
+        <h1 id="topic">Loading…</h1>
+        <p id="post-id" class="post-id"></p>
+      </div>
+
+      <div class="carousel-section">
+        <div class="carousel-wrapper">
+          <div id="carousel-track" class="carousel-track"></div>
+        </div>
+
+        <div class="carousel-controls">
+          <button id="prev-btn" class="nav-btn" disabled aria-label="Previous slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 13.5L6.5 9L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="slide-counter" class="slide-counter"></span>
+          <button id="next-btn" class="nav-btn" aria-label="Next slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="dot-row" class="dot-row"></div>
+      </div>
+
+      <div id="load-error" class="load-error" hidden></div>
+    </div>
+
+    <!-- 30% RIGHT — metadata form -->
+    <div class="right-panel">
+      <div class="right-inner">
+        <div class="right-header">
+          <span class="right-title">Post Details</span>
+        </div>
+
+        <div class="field">
+          <label for="caption">Caption</label>
+          <textarea id="caption" rows="7" placeholder="Write your Instagram caption here…"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="hashtags">Hashtags</label>
+          <input id="hashtags" type="text" placeholder="#coding #beginners #tech #india">
+        </div>
+
+        <div class="field">
+          <label for="scheduled-time">Schedule Time</label>
+          <input id="scheduled-time" type="datetime-local">
+        </div>
+
+        <div class="approve-section">
+          <button id="approve-btn" class="approve-btn">Approve Post</button>
+          <p id="success-msg" class="success-msg" hidden>Post approved successfully.</p>
+          <p id="error-msg" class="error-msg" hidden></p>
+        </div>
+      </div>
+    </div>
+
   </div>
+
+  <script>
+    const postId = location.pathname.split('/').filter(Boolean).pop();
+    document.getElementById('post-id').textContent = postId;
+
+    let currentIndex = 0;
+    let totalSlides = 0;
+    const track = document.getElementById('carousel-track');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const counter = document.getElementById('slide-counter');
+    const dotRow = document.getElementById('dot-row');
+
+    function slideWidth() {
+      return track.parentElement.offsetWidth;
+    }
+
+    function updateSlideWidths() {
+      const w = slideWidth();
+      document.querySelectorAll('.slide-img').forEach(img => { img.style.width = w + 'px'; });
+    }
+
+    function goTo(index, animate) {
+      if (!animate) track.style.transition = 'none';
+      const w = slideWidth();
+      track.style.transform = `translateX(-${index * w}px)`;
+      if (!animate) requestAnimationFrame(() => { track.style.transition = ''; });
+      currentIndex = index;
+      counter.textContent = `${index + 1} / ${totalSlides}`;
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === totalSlides - 1;
+      document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === index));
+    }
+
+    prevBtn.addEventListener('click', () => { if (currentIndex > 0) goTo(currentIndex - 1, true); });
+    nextBtn.addEventListener('click', () => { if (currentIndex < totalSlides - 1) goTo(currentIndex + 1, true); });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft'  && currentIndex > 0)              goTo(currentIndex - 1, true);
+      if (e.key === 'ArrowRight' && currentIndex < totalSlides - 1) goTo(currentIndex + 1, true);
+    });
+
+    window.addEventListener('resize', () => { updateSlideWidths(); goTo(currentIndex, false); });
+
+    fetch(`/api/post/${postId}`)
+      .then(r => r.json())
+      .then(post => {
+        if (post.error) {
+          document.getElementById('load-error').textContent = post.error;
+          document.getElementById('load-error').hidden = false;
+          document.getElementById('topic').textContent = 'Not found';
+          return;
+        }
+
+        document.title = post.topic || postId;
+        document.getElementById('topic').textContent = post.topic || postId;
+
+        const tb = document.getElementById('template-badge');
+        tb.textContent = post.template;
+        tb.dataset.template = post.template;
+
+        const sb = document.getElementById('status-badge');
+        sb.textContent = post.status;
+        sb.dataset.status = post.status;
+
+        if (post.caption)        document.getElementById('caption').value = post.caption;
+        if (post.hashtags)       document.getElementById('hashtags').value = post.hashtags;
+        if (post.scheduled_time) document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
+        if (post.status === 'approved') {
+          document.getElementById('approve-btn').disabled = true;
+          document.getElementById('success-msg').hidden = false;
+        }
+
+        totalSlides = post.image_urls.length;
+        if (totalSlides === 0) {
+          document.getElementById('load-error').textContent = 'No images found in Spaces for this post.';
+          document.getElementById('load-error').hidden = false;
+          return;
+        }
+
+        post.image_urls.forEach((url, i) => {
+          const img = document.createElement('img');
+          img.src = url;
+          img.className = 'slide-img';
+          img.alt = `Slide ${i + 1}`;
+          track.appendChild(img);
+
+          const dot = document.createElement('button');
+          dot.className = 'dot';
+          dot.setAttribute('aria-label', `Slide ${i + 1}`);
+          dot.addEventListener('click', () => goTo(i, true));
+          dotRow.appendChild(dot);
+        });
+
+        updateSlideWidths();
+        goTo(0, false);
+      })
+      .catch(() => {
+        document.getElementById('load-error').textContent = 'Could not reach the server.';
+        document.getElementById('load-error').hidden = false;
+      });
+
+    document.getElementById('approve-btn').addEventListener('click', () => {
+      const body = {
+        id: postId,
+        caption: document.getElementById('caption').value.trim(),
+        hashtags: document.getElementById('hashtags').value.trim(),
+        scheduled_time: document.getElementById('scheduled-time').value || null,
+      };
+      document.getElementById('approve-btn').disabled = true;
+      document.getElementById('error-msg').hidden = true;
+
+      fetch('/api/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error-msg').textContent = data.error;
+            document.getElementById('error-msg').hidden = false;
+            document.getElementById('approve-btn').disabled = false;
+            return;
+          }
+          document.getElementById('success-msg').hidden = false;
+          const sb = document.getElementById('status-badge');
+          sb.textContent = 'approved';
+          sb.dataset.status = 'approved';
+        })
+        .catch(() => {
+          document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
+          document.getElementById('error-msg').hidden = false;
+          document.getElementById('approve-btn').disabled = false;
+        });
+    });
+  </script>
 </body>
 </html>
