@@ -310,10 +310,10 @@ to be running at publish time.
 
 ### Phase 3 — MCP Server
 
-- [ ] MCP server scaffold on Mac
-- [ ] generate_carousel tool
-- [ ] preview_carousel tool
-- [ ] Register in claude_desktop_config.json
+- [x] MCP server scaffold on Mac
+- [x] generate_carousel tool
+- [x] preview_carousel tool
+- [x] Register in claude_desktop_config.json
 - [ ] Test end to end from Claude Desktop
 
 ### Phase 4 — Instagram Integration

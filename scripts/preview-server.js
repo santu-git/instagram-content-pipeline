@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const Database = require('better-sqlite3');
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { generatePost } = require('./generate');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -80,6 +81,23 @@ app.get('/api/post/:id', async (req, res) => {
   }
 
   res.json({ ...post, image_urls: imageUrls });
+});
+
+// Generate carousel: render + upload + save in one call (used by MCP)
+app.post('/api/generate', async (req, res) => {
+  const carouselJson = req.body;
+  if (!carouselJson?.template || !carouselJson?.slides) {
+    return res.status(400).json({ error: 'carousel_json must include template and slides' });
+  }
+  try {
+    const result = await generatePost(carouselJson);
+    // Use actual request host so preview_url works regardless of NODE_APP_BASE_URL
+    result.preview_url = `${req.protocol}://${req.get('host')}/preview/${result.id}`;
+    res.json(result);
+  } catch (err) {
+    console.error('Generate failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Approve a post with caption, hashtags, and optional schedule time

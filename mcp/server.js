@@ -1,12 +1,48 @@
-// Phase 3: MCP Server — runs on Mac, bridges Claude Desktop to Node app on Droplet
-// Config location: ~/Library/Application Support/Claude/claude_desktop_config.json
-// No Claude API key required — uses Claude Desktop subscription via MCP protocol
-
 'use strict';
 
-// TODO: implement in Phase 3
-// - Initialise @modelcontextprotocol/sdk MCP server
-// - Register all tools from mcp/tools/
-// - Each tool makes HTTP calls to NODE_APP_BASE_URL (Droplet) via fetch
-// - Tools: generate_carousel, preview_carousel, publish_now, schedule_post,
-//          list_scheduled_posts, cancel_scheduled_post, get_post_stats, get_weekly_summary
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+
+const { Server }               = require('@modelcontextprotocol/sdk/server');
+const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
+const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
+
+const generateTool = require('./tools/generate');
+const previewTool  = require('./tools/preview');
+
+const TOOLS = [generateTool, previewTool];
+
+const server = new Server(
+  { name: 'instagram-pipeline', version: '1.0.0' },
+  { capabilities: { tools: {} } }
+);
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: TOOLS.map(t => t.definition),
+}));
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+  const tool = TOOLS.find(t => t.definition.name === name);
+
+  if (!tool) {
+    return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+  }
+
+  try {
+    const result = await tool.execute(args || {});
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('[instagram-pipeline] MCP server ready');
+}
+
+main().catch(err => {
+  console.error('[instagram-pipeline] Fatal:', err.message);
+  process.exit(1);
+});
