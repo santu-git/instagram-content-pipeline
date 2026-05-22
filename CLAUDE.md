@@ -314,7 +314,7 @@ to be running at publish time.
 - [x] generate_carousel tool
 - [x] preview_carousel tool
 - [x] Register in claude_desktop_config.json
-- [ ] Test end to end from Claude Desktop
+- [x] Test end to end from Claude Desktop
 
 ### Phase 4 — Instagram Integration
 
