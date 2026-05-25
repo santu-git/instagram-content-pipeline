@@ -5,6 +5,7 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { generatePost } = require('./generate');
+const { publishNow, schedulePost, cancelScheduled } = require('./publish');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -118,6 +119,49 @@ app.post('/api/approve', (req, res) => {
   }
 
   res.json({ id, status: 'approved' });
+});
+
+// Publish a post immediately to Instagram
+app.post('/api/publish/:id', async (req, res) => {
+  try {
+    const result = await publishNow(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('Publish failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Schedule a post via Instagram native scheduling
+app.post('/api/schedule', async (req, res) => {
+  const { id, iso_datetime } = req.body;
+  if (!id || !iso_datetime) return res.status(400).json({ error: 'id and iso_datetime are required' });
+  try {
+    const result = await schedulePost(id, iso_datetime);
+    res.json(result);
+  } catch (err) {
+    console.error('Schedule failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cancel a scheduled post
+app.delete('/api/schedule/:id', async (req, res) => {
+  try {
+    const result = await cancelScheduled(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error('Cancel failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List all scheduled posts
+app.get('/api/scheduled-posts', (req, res) => {
+  const db = getDb();
+  const posts = db.prepare(`SELECT * FROM scheduled_posts WHERE status = 'scheduled' ORDER BY scheduled_time ASC`).all();
+  db.close();
+  res.json(posts);
 });
 
 app.listen(PORT, () => {

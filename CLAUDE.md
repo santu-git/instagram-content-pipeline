@@ -318,13 +318,13 @@ to be running at publish time.
 
 ### Phase 4 — Instagram Integration
 
-- [ ] Facebook Page linked to Instagram Creator account
-- [ ] Instagram Graph API credentials setup
-- [ ] publish_now tool using Spaces public URLs
-- [ ] schedule_post tool using Instagram native scheduling
+- [x] Facebook Page linked to Instagram Creator account
+- [x] Instagram Graph API credentials setup
+- [x] publish_now tool using Spaces public URLs
+- [x] schedule_post tool using Instagram native scheduling
 - [ ] Verify native scheduling works on Creator account
-- [ ] list_scheduled_posts tool
-- [ ] cancel_scheduled_post tool
+- [x] list_scheduled_posts tool
+- [x] cancel_scheduled_post tool
 
 ### Phase 5 — Analytics
 
