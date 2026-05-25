@@ -18,24 +18,29 @@
 | Layer | Where It Runs |
 |---|---|
 | Claude Desktop | Mac (local) |
-| MCP Server | Mac (local) — communicates with remote Node app via HTTP |
-| Node.js App | DigitalOcean Droplet (remote server) |
-| Database | SQLite on DigitalOcean Droplet |
+| MCP Server | Mac (local) — communicates with Node app via HTTP |
+| Node.js App | Docker container on Mac (local) |
+| Database | SQLite — bind-mounted volume `./data` persists across container restarts |
 | Static Assets | DigitalOcean Spaces (S3-compatible) |
-| Preview Server | DigitalOcean Droplet (remote) |
-| Instagram Graph API | Called from DigitalOcean Droplet |
+| Preview Server | Docker container on Mac (http://localhost:3000) |
+| Instagram Graph API | Called from Docker container |
+
+> **Future:** Move Docker container to DigitalOcean Droplet for 24/7 scheduling without keeping Mac on.
 
 ### Infrastructure Decisions
 
 **MCP runs locally on Mac** so Claude Desktop connects without tunneling.
-MCP server makes HTTP API calls to the Node.js app on the Droplet.
+MCP server makes HTTP API calls to the Node app at `http://localhost:3000`.
 
-**SQLite on Droplet** for all operational data — scheduled posts,
-published posts, stats. File-based, zero separate server needed,
-full SQL queries, perfect for 3–4 posts per week scale.
+**Docker on Mac** containerises the Node app with Puppeteer + Chromium.
+SQLite data persists via `./data:/app/data` volume mount in docker-compose.yml.
 
-**DigitalOcean Spaces** for static assets only — generated PNGs and
-preview pages that need public URLs. Not used for operational data.
+**SQLite** for all operational data — scheduled posts, published posts, stats.
+File-based, zero separate server needed, full SQL queries, perfect for
+3–4 posts per week scale.
+
+**DigitalOcean Spaces** for static assets only — generated PNGs that need
+public URLs for Instagram. Not used for operational data.
 Spaces is object storage, not a database — not suitable for
 read/modify/write operational records.
 
@@ -66,10 +71,12 @@ read/modify/write operational records.
 
 ### Zero Intervention Publishing
 
-Once scheduled on Sunday, the Droplet server publishes automatically
-at the set times throughout the week. Uses a custom server-side
-scheduler (setInterval every 60s) in preview-server.js.
-The DigitalOcean Droplet must be running — the Mac does not need to be.
+Once scheduled on Sunday, the Docker container publishes automatically
+at the set times throughout the week. Two-part scheduler in preview-server.js:
+- **Startup sweep**: publishes any overdue posts immediately when the container starts
+- **Background interval**: checks every 60s and publishes posts as their time arrives
+
+The Docker container must be running. The Mac does not need to be awake.
 Not using Instagram native scheduling (requires Facebook App in Live mode).
 
 ---
@@ -82,18 +89,18 @@ Not using Instagram native scheduling (requires Facebook App in Live mode).
 Claude Desktop (Mac)
        ↓ ↑ MCP Protocol (local)
 MCP Server (Mac — localhost)
-       ↓ ↑ HTTP API calls
-Node.js App (DigitalOcean Droplet)
+       ↓ ↑ HTTP API calls to localhost:3000
+Node.js App (Docker — Mac)
        ↓                      ↓
 Puppeteer                Instagram
 Renderer                 Graph API
        ↓                      ↓
 DigitalOcean             Publish Now /
-Spaces (S3)              Schedule Post /
-Public PNG URLs          Get Stats
-       ↓                      ↓
-SQLite Database          Express Preview
-(Droplet)                Server (Droplet)
+Spaces (S3)              Schedule Post
+Public PNG URLs
+       ↓
+SQLite Database
+(./data volume)
 scheduled_posts
 published_posts
 ```
@@ -122,8 +129,9 @@ Claude runs via Claude Desktop subscription through MCP protocol.
 | Preview Server | Express.js |
 | MCP Server | @modelcontextprotocol/sdk |
 | Storage | DigitalOcean Spaces via AWS SDK (S3-compatible) |
-| Scheduler | Instagram Graph API native scheduling |
+| Scheduler | Custom setInterval (60s) + startup sweep in preview-server.js |
 | Publishing | Instagram Graph API |
+| Containerisation | Docker + docker-compose |
 | AI Brain | Claude Desktop for Mac via MCP |
 
 ---
@@ -135,6 +143,9 @@ instagram-content-pipeline/
 ├── CLAUDE.md
 ├── BRAND.md
 ├── DESIGN.md
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
 ├── package.json
 ├── .env
 ├── .gitignore
@@ -154,8 +165,10 @@ instagram-content-pipeline/
 ├── /scripts
 │   ├── render.js
 │   ├── upload.js
+│   ├── generate.js
 │   ├── preview-server.js
-│   └── publish.js
+│   ├── publish.js
+│   └── init-db.js
 ├── /mcp
 │   ├── server.js
 │   └── /tools
@@ -165,12 +178,14 @@ instagram-content-pipeline/
 │       ├── stats.js
 │       └── queue.js
 ├── /preview-ui
-│   ├── index.html
+│   ├── index.html      ← post preview + approve form
+│   ├── list.html       ← posts dashboard
+│   ├── calendar.html   ← month-view content calendar
 │   └── styles.css
 ├── /data
 │   └── instagram-pipeline.db
 ├── /output
-│   ├── /posts
+│   ├── /posts          ← cleared automatically after Spaces upload
 │   └── /stories
 └── /sample-content
     ├── educator.json
@@ -230,10 +245,23 @@ CREATE TABLE published_posts (
 
 ### schedule_post Note
 
-Uses custom server-side scheduling. The Droplet's preview-server.js
-checks every 60s for posts whose scheduled_time has arrived and
-calls publishNow(). The Droplet must be running — the Mac does not.
+Uses custom server-side scheduling. preview-server.js checks every 60s
+for posts whose scheduled_time has arrived and calls publishNow().
+On container start, overdue posts are published immediately (startup sweep).
+The Docker container must be running — the Mac does not need to be awake.
 Not using Instagram native scheduling (requires Facebook App Live mode).
+
+### Schedule Suggestion
+
+`GET /api/suggest-schedule` returns the next optimal IST publish time
+based on engagement research. Only auto-fills for posts with status `uploaded`.
+
+Optimal slots (IST / Asia/Kolkata):
+- Mon–Thu: 08:00, 20:00
+- Wed: 20:00 first (peak day)
+- Fri: 12:30, 19:00
+- Sat–Sun: 21:00
+- Conflict check: no other scheduled post within ±2 hours
 
 ---
 
@@ -328,7 +356,19 @@ Not using Instagram native scheduling (requires Facebook App Live mode).
 - [x] list_scheduled_posts tool
 - [x] cancel_scheduled_post tool
 
-### Phase 5 — Analytics
+### Phase 5 — Docker + UI Enhancements
+
+- [x] Dockerfile (node:20-slim + Chromium for Puppeteer)
+- [x] docker-compose.yml with SQLite volume mount (./data:/app/data)
+- [x] .dockerignore
+- [x] Puppeteer --no-sandbox args for Docker
+- [x] Output folder auto-cleanup after Spaces upload
+- [x] Back button on preview page
+- [x] Smart schedule suggestion (IST optimal slots, auto-fills on page load)
+- [x] Content calendar — month view at /calendar
+- [x] Scheduler query fix: datetime(scheduled_time) for ISO timezone strings
+
+### Phase 6 — Analytics
 
 - [ ] get_post_stats tool
 - [ ] get_weekly_summary tool
@@ -339,7 +379,7 @@ Not using Instagram native scheduling (requires Facebook App Live mode).
 ## Environment Variables
 
 ```
-# DigitalOcean Droplet .env
+# .env (shared — used by both Docker container and MCP server on Mac)
 INSTAGRAM_ACCESS_TOKEN=
 INSTAGRAM_BUSINESS_ACCOUNT_ID=
 FACEBOOK_PAGE_ID=
@@ -350,9 +390,7 @@ DO_SPACES_BUCKET=
 DO_SPACES_CDN_URL=
 DB_PATH=./data/instagram-pipeline.db
 PORT=3000
-
-# MCP Server Mac .env
-NODE_APP_BASE_URL=https://your-droplet-ip-or-domain
+NODE_APP_BASE_URL=http://localhost:3000
 ```
 
 ---
@@ -388,17 +426,30 @@ NODE_APP_BASE_URL=https://your-droplet-ip-or-domain
 ## How to Run
 
 ```bash
-# Render slides from JSON
-node scripts/render.js --template educator --input sample-content/educator.json
+# Build Docker image (once, or after code changes)
+docker compose build
 
-# Upload rendered PNGs to Spaces
-node scripts/upload.js --input output/posts/post-uuid/
+# Start the app (publishes any overdue posts on startup)
+docker compose up
 
-# Start preview server on Droplet
+# Stop
+docker compose down
+
+# Initialise SQLite database (first time only)
+docker compose exec app node scripts/init-db.js
+
+# Start MCP server on Mac (separate terminal)
+node mcp/server.js
+```
+
+### Direct (no Docker)
+
+```bash
+# Start preview server directly
 node scripts/preview-server.js
 
-# Start MCP server on Mac
-node mcp/server.js
+# Render slides from JSON (CLI)
+node scripts/render.js --template educator --input sample-content/educator.json
 ```
 
 ---
