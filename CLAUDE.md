@@ -265,6 +265,44 @@ Optimal slots (IST / Asia/Kolkata):
 
 ---
 
+## Post Status Lifecycle
+
+| Status | Meaning | User Actions Available |
+|---|---|---|
+| `uploaded` | Post just created by Claude. Images in Spaces, nothing decided yet. | Approve, Reject |
+| `approved` | User approved content. Caption/hashtags saved. Not yet handed to scheduler. | Reject |
+| `scheduled` | `schedule_post` called. Server will auto-publish at the set time. | Reject, Cancel Schedule |
+| `published` | Successfully posted to Instagram. Terminal state. | None |
+| `rejected` | Content rejected permanently. Will never publish. Terminal state. | None |
+| `cancelled` | Schedule was cancelled (timing issue, not content). Can be re-approved. | Approve, Reject |
+
+### Status Flow
+
+```
+uploaded → approved → scheduled → published
+    ↓           ↓          ↓
+ rejected    rejected    cancelled → (back to approved/scheduled)
+                         rejected
+```
+
+### Key Distinction
+
+- **`cancelled`** = wrong time, good content. Re-approvable — set a new schedule time and approve again.
+- **`rejected`** = wrong content. Terminal — post is permanently done and will never publish.
+
+### Preview Page Button Visibility
+
+| Status | Approve | Reject | Cancel Schedule |
+|---|---|---|---|
+| `uploaded` | enabled | enabled | hidden |
+| `approved` | disabled | enabled | hidden |
+| `scheduled` | disabled | enabled | **visible** |
+| `published` | disabled | disabled | hidden |
+| `rejected` | disabled | disabled | hidden |
+| `cancelled` | enabled | enabled | hidden |
+
+---
+
 ## JSON Schema
 
 ```json
@@ -367,6 +405,8 @@ Optimal slots (IST / Asia/Kolkata):
 - [x] Smart schedule suggestion (IST optimal slots, auto-fills on page load)
 - [x] Content calendar — month view at /calendar
 - [x] Scheduler query fix: datetime(scheduled_time) for ISO timezone strings
+- [x] Reject button — marks post as rejected (terminal), clears scheduled_time
+- [x] Cancel Schedule button — visible only for scheduled posts, reverts to cancelled (re-approvable)
 
 ### Phase 6 — Analytics
 
