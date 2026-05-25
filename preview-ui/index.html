@@ -147,7 +147,7 @@
         if (post.hashtags)       document.getElementById('hashtags').value = post.hashtags;
         if (post.scheduled_time) {
           document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
-        } else {
+        } else if (post.status === 'uploaded') {
           fetch('/api/suggest-schedule')
             .then(r => r.json())
             .then(s => {
