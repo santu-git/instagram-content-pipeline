@@ -74,8 +74,10 @@
             <button id="reject-btn" class="reject-btn">Reject</button>
             <button id="approve-btn" class="approve-btn">Approve</button>
           </div>
+          <button id="cancel-btn" class="cancel-btn" hidden>Cancel Schedule</button>
           <p id="success-msg" class="success-msg" hidden>Post approved successfully.</p>
           <p id="rejected-msg" class="rejected-msg" hidden>Post rejected.</p>
+          <p id="cancelled-msg" class="cancelled-msg" hidden>Schedule cancelled. You can reschedule and re-approve.</p>
           <p id="error-msg" class="error-msg" hidden></p>
         </div>
       </div>
@@ -175,6 +177,9 @@
           document.getElementById('approve-btn').disabled = true;
           document.getElementById('success-msg').hidden = false;
         }
+        if (post.status === 'scheduled') {
+          document.getElementById('cancel-btn').hidden = false;
+        }
         if (post.status === 'rejected') {
           document.getElementById('rejected-msg').hidden = false;
         }
@@ -242,6 +247,35 @@
           document.getElementById('approve-btn').disabled = false;
         });
     });
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      document.getElementById('cancel-btn').disabled = true;
+      document.getElementById('error-msg').hidden = true;
+
+      fetch(`/api/schedule/${postId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error-msg').textContent = data.error;
+            document.getElementById('error-msg').hidden = false;
+            document.getElementById('cancel-btn').disabled = false;
+            return;
+          }
+          document.getElementById('cancel-btn').hidden = true;
+          document.getElementById('success-msg').hidden = true;
+          document.getElementById('cancelled-msg').hidden = false;
+          document.getElementById('approve-btn').disabled = false;
+          document.getElementById('reject-btn').disabled = false;
+          const sb = document.getElementById('status-badge');
+          sb.textContent = 'cancelled';
+          sb.dataset.status = 'cancelled';
+        })
+        .catch(() => {
+          document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
+          document.getElementById('error-msg').hidden = false;
+          document.getElementById('cancel-btn').disabled = false;
+        });
+    });
+
     document.getElementById('reject-btn').addEventListener('click', () => {
       document.getElementById('reject-btn').disabled = true;
       document.getElementById('approve-btn').disabled = true;

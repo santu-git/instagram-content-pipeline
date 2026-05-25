@@ -357,3 +357,33 @@ textarea { resize: vertical; }
   margin-top: 4px;
   display: block;
 }
+
+.cancel-btn {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  color: #8E8E93;
+  padding: 10px;
+  border: 1.5px solid #D1D1D6;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cancel-btn:hover:not(:disabled) {
+  background: #F2F2F7;
+  border-color: #8E8E93;
+  color: #3A3A3C;
+}
+.cancel-btn:disabled { opacity: 0.4; cursor: default; }
+
+.cancelled-msg {
+  font-size: 13px;
+  font-weight: 500;
+  color: #8E8E93;
+  background: #F2F2F7;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
+}
