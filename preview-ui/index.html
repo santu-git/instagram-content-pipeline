@@ -11,6 +11,7 @@
 
     <!-- 70% LEFT — slide viewer -->
     <div class="left-panel">
+      <a href="/" class="back-link">← Posts</a>
       <div class="post-header">
         <div class="badges">
           <span id="template-badge" class="badge"></span>
@@ -65,6 +66,7 @@
         <div class="field">
           <label for="scheduled-time">Schedule Time</label>
           <input id="scheduled-time" type="datetime-local">
+          <small id="schedule-hint" class="schedule-hint"></small>
         </div>
 
         <div class="approve-section">
@@ -143,7 +145,19 @@
 
         if (post.caption)        document.getElementById('caption').value = post.caption;
         if (post.hashtags)       document.getElementById('hashtags').value = post.hashtags;
-        if (post.scheduled_time) document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
+        if (post.scheduled_time) {
+          document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
+        } else {
+          fetch('/api/suggest-schedule')
+            .then(r => r.json())
+            .then(s => {
+              if (s.suggested_time) {
+                document.getElementById('scheduled-time').value = s.suggested_time.slice(0, 16);
+                document.getElementById('schedule-hint').textContent = 'Suggested: ' + s.reason;
+              }
+            })
+            .catch(() => {});
+        }
         if (post.status === 'approved') {
           document.getElementById('approve-btn').disabled = true;
           document.getElementById('success-msg').hidden = false;

@@ -302,3 +302,20 @@ textarea { resize: vertical; }
   padding: 10px 14px;
   border-radius: 8px;
 }
+
+.back-link {
+  display: inline-block;
+  font-size: 13px;
+  color: #8E8E93;
+  text-decoration: none;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.back-link:hover { color: #1C1C1E; }
+
+.schedule-hint {
+  font-size: 12px;
+  color: #8E8E93;
+  margin-top: 4px;
+  display: block;
+}

@@ -29,6 +29,54 @@ function getDb() {
   return new Database(path.resolve(DB_PATH));
 }
 
+// ── Schedule suggestion ──────────────────────────────────────────────────────
+
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+const OPTIMAL_SLOTS = {
+  0: [[21, 0, 'Sunday evening']],
+  1: [[8, 0, 'Monday morning'], [20, 0, 'Monday evening']],
+  2: [[8, 0, 'Tuesday morning'], [20, 0, 'Tuesday evening']],
+  3: [[20, 0, 'Wednesday evening (peak day)'], [8, 0, 'Wednesday morning']],
+  4: [[8, 0, 'Thursday morning'], [20, 0, 'Thursday evening']],
+  5: [[12, 30, 'Friday lunch'], [19, 0, 'Friday evening']],
+  6: [[21, 0, 'Saturday evening']],
+};
+
+function suggestScheduleTime(scheduledPosts) {
+  const now = new Date();
+  const minSlotTime = now.getTime() + 10 * 60 * 1000;
+  const twoHours = 2 * 60 * 60 * 1000;
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS);
+  const pad = n => String(n).padStart(2, '0');
+
+  for (let dayOffset = 0; dayOffset <= 14; dayOffset++) {
+    const midnightIST_UTC = Date.UTC(
+      istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate() + dayOffset
+    ) - IST_OFFSET_MS;
+    const dow = new Date(midnightIST_UTC + IST_OFFSET_MS).getUTCDay();
+
+    for (const [hour, min, label] of (OPTIMAL_SLOTS[dow] || [])) {
+      const slotUTC = midnightIST_UTC + (hour * 60 + min) * 60 * 1000;
+      if (slotUTC < minSlotTime) continue;
+
+      const conflict = scheduledPosts.some(p => {
+        if (!p.scheduled_time) return false;
+        return Math.abs(new Date(p.scheduled_time).getTime() - slotUTC) < twoHours;
+      });
+
+      if (!conflict) {
+        const d = new Date(midnightIST_UTC + IST_OFFSET_MS);
+        return {
+          suggested_time: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(hour)}:${pad(min)}:00+05:30`,
+          reason: label,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 // Dashboard — list of all posts
 app.get('/', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'list.html'));
@@ -164,11 +212,25 @@ app.get('/api/scheduled-posts', (req, res) => {
   res.json(posts);
 });
 
+// Suggest next optimal publish time (IST)
+app.get('/api/suggest-schedule', (req, res) => {
+  const db = getDb();
+  const scheduled = db.prepare(`SELECT scheduled_time FROM scheduled_posts WHERE status = 'scheduled'`).all();
+  db.close();
+  const suggestion = suggestScheduleTime(scheduled);
+  res.json(suggestion || { suggested_time: null, reason: 'No optimal slot found in next 14 days' });
+});
+
+// Content calendar page
+app.get('/calendar', (req, res) => {
+  res.sendFile(path.resolve('preview-ui', 'calendar.html'));
+});
+
 async function publishDuePosts() {
   const db = getDb();
   const due = db.prepare(`
     SELECT id FROM scheduled_posts
-    WHERE status = 'scheduled' AND scheduled_time <= datetime('now')
+    WHERE status = 'scheduled' AND datetime(scheduled_time) <= datetime('now')
   `).all();
   db.close();
 
