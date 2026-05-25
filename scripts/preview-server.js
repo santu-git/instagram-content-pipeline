@@ -159,19 +159,21 @@ app.post('/api/approve', (req, res) => {
   const { id, caption, hashtags, scheduled_time } = req.body;
   if (!id) return res.status(400).json({ error: 'id is required' });
 
+  const newStatus = scheduled_time ? 'scheduled' : 'approved';
+
   const db = getDb();
   const result = db.prepare(`
     UPDATE scheduled_posts
-    SET status = 'approved', caption = ?, hashtags = ?, scheduled_time = ?
+    SET status = ?, caption = ?, hashtags = ?, scheduled_time = ?
     WHERE id = ?
-  `).run(caption || null, hashtags || null, scheduled_time || null, id);
+  `).run(newStatus, caption || null, hashtags || null, scheduled_time || null, id);
   db.close();
 
   if (result.changes === 0) {
     return res.status(404).json({ error: `Post "${id}" not found` });
   }
 
-  res.json({ id, status: 'approved' });
+  res.json({ id, status: newStatus });
 });
 
 // Publish a post immediately to Instagram

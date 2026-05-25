@@ -270,8 +270,8 @@ Optimal slots (IST / Asia/Kolkata):
 | Status | Meaning | User Actions Available |
 |---|---|---|
 | `uploaded` | Post just created by Claude. Images in Spaces, nothing decided yet. | Approve, Reject |
-| `approved` | User approved content. Caption/hashtags saved. Not yet handed to scheduler. | Reject |
-| `scheduled` | `schedule_post` called. Server will auto-publish at the set time. | Reject, Cancel Schedule |
+| `approved` | Content approved but **no schedule time set**. Will not publish until scheduled via MCP. | Reject |
+| `scheduled` | Approved **with a schedule time**. Server auto-publishes at that time (60s check loop). | Reject, Cancel Schedule |
 | `published` | Successfully posted to Instagram. Terminal state. | None |
 | `rejected` | Content rejected permanently. Will never publish. Terminal state. | None |
 | `cancelled` | Schedule was cancelled (timing issue, not content). Can be re-approved. | Approve, Reject |
@@ -285,8 +285,9 @@ uploaded → approved → scheduled → published
                          rejected
 ```
 
-### Key Distinction
+### Key Distinctions
 
+- **`approved`** vs **`scheduled`**: Clicking Approve with a schedule time filled in → status becomes `scheduled` immediately. Approve with no time → status stays `approved` (must schedule later via MCP tool).
 - **`cancelled`** = wrong time, good content. Re-approvable — set a new schedule time and approve again.
 - **`rejected`** = wrong content. Terminal — post is permanently done and will never publish.
 

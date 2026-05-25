@@ -238,8 +238,11 @@
           }
           document.getElementById('success-msg').hidden = false;
           const sb = document.getElementById('status-badge');
-          sb.textContent = 'approved';
-          sb.dataset.status = 'approved';
+          sb.textContent = data.status;
+          sb.dataset.status = data.status;
+          if (data.status === 'scheduled') {
+            document.getElementById('cancel-btn').hidden = false;
+          }
         })
         .catch(() => {
           document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
