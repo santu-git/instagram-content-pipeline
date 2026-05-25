@@ -64,7 +64,7 @@
         </div>
 
         <div class="field">
-          <label for="scheduled-time">Schedule Time</label>
+          <label id="schedule-label" for="scheduled-time">Schedule Time</label>
           <input id="scheduled-time" type="datetime-local">
           <small id="schedule-hint" class="schedule-hint"></small>
         </div>
@@ -145,8 +145,13 @@
 
         if (post.caption)        document.getElementById('caption').value = post.caption;
         if (post.hashtags)       document.getElementById('hashtags').value = post.hashtags;
-        if (post.scheduled_time) {
-          document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
+        const displayTime = post.scheduled_time || post.published_at;
+        if (displayTime) {
+          document.getElementById('scheduled-time').value = displayTime.replace(' ', 'T').slice(0, 16);
+          if (!post.scheduled_time && post.published_at) {
+            document.getElementById('schedule-label').textContent = 'Published At';
+            document.getElementById('scheduled-time').readOnly = true;
+          }
         } else if (post.status === 'uploaded') {
           fetch('/api/suggest-schedule')
             .then(r => r.json())

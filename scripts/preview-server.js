@@ -100,7 +100,12 @@ app.get('/api/post/:id', async (req, res) => {
   const { id } = req.params;
 
   const db = getDb();
-  const post = db.prepare('SELECT * FROM scheduled_posts WHERE id = ?').get(id);
+  const post = db.prepare(`
+    SELECT sp.*, pp.published_at
+    FROM scheduled_posts sp
+    LEFT JOIN published_posts pp ON pp.id = sp.id
+    WHERE sp.id = ?
+  `).get(id);
   db.close();
 
   if (!post) {
