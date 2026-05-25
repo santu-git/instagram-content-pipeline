@@ -70,8 +70,12 @@
         </div>
 
         <div class="approve-section">
-          <button id="approve-btn" class="approve-btn">Approve Post</button>
+          <div class="action-row">
+            <button id="reject-btn" class="reject-btn">Reject</button>
+            <button id="approve-btn" class="approve-btn">Approve</button>
+          </div>
           <p id="success-msg" class="success-msg" hidden>Post approved successfully.</p>
+          <p id="rejected-msg" class="rejected-msg" hidden>Post rejected.</p>
           <p id="error-msg" class="error-msg" hidden></p>
         </div>
       </div>
@@ -163,9 +167,16 @@
             })
             .catch(() => {});
         }
-        if (post.status === 'approved') {
+        if (['published', 'rejected'].includes(post.status)) {
+          document.getElementById('approve-btn').disabled = true;
+          document.getElementById('reject-btn').disabled = true;
+        }
+        if (['approved', 'scheduled'].includes(post.status)) {
           document.getElementById('approve-btn').disabled = true;
           document.getElementById('success-msg').hidden = false;
+        }
+        if (post.status === 'rejected') {
+          document.getElementById('rejected-msg').hidden = false;
         }
 
         totalSlides = post.image_urls.length;
@@ -228,6 +239,32 @@
         .catch(() => {
           document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
           document.getElementById('error-msg').hidden = false;
+          document.getElementById('approve-btn').disabled = false;
+        });
+    });
+    document.getElementById('reject-btn').addEventListener('click', () => {
+      document.getElementById('reject-btn').disabled = true;
+      document.getElementById('approve-btn').disabled = true;
+      document.getElementById('error-msg').hidden = true;
+
+      fetch(`/api/reject/${postId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error-msg').textContent = data.error;
+            document.getElementById('error-msg').hidden = false;
+            document.getElementById('reject-btn').disabled = false;
+            return;
+          }
+          document.getElementById('rejected-msg').hidden = false;
+          const sb = document.getElementById('status-badge');
+          sb.textContent = 'rejected';
+          sb.dataset.status = 'rejected';
+        })
+        .catch(() => {
+          document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
+          document.getElementById('error-msg').hidden = false;
+          document.getElementById('reject-btn').disabled = false;
           document.getElementById('approve-btn').disabled = false;
         });
     });

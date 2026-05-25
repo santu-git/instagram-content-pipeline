@@ -209,6 +209,18 @@ app.delete('/api/schedule/:id', async (req, res) => {
   }
 });
 
+// Reject a post — marks it as rejected and clears scheduled_time
+app.post('/api/reject/:id', (req, res) => {
+  const db = getDb();
+  const post = db.prepare('SELECT status FROM scheduled_posts WHERE id = ?').get(req.params.id);
+  if (!post) { db.close(); return res.status(404).json({ error: 'Post not found' }); }
+  if (post.status === 'published') { db.close(); return res.status(400).json({ error: 'Cannot reject a published post' }); }
+
+  db.prepare(`UPDATE scheduled_posts SET status = 'rejected', scheduled_time = NULL WHERE id = ?`).run(req.params.id);
+  db.close();
+  res.json({ id: req.params.id, status: 'rejected' });
+});
+
 // List all scheduled posts
 app.get('/api/scheduled-posts', (req, res) => {
   const db = getDb();

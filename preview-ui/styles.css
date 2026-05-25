@@ -77,6 +77,8 @@ html, body {
 .badge[data-status="approved"]  { background: #E3F7E9; color: #1A6E3A; }
 .badge[data-status="scheduled"] { background: #FFF3DE; color: #8A4800; }
 .badge[data-status="published"] { background: #4A5240; color: #FAFAFA; }
+.badge[data-status="rejected"]  { background: #FDE8E8; color: #C0392B; }
+.badge[data-status="cancelled"] { background: #F2F2F7; color: #8E8E93; }
 
 .post-header h1 {
   font-size: 24px;
@@ -265,6 +267,42 @@ textarea { resize: vertical; }
   gap: 12px;
   margin-top: auto;
   padding-top: 8px;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.action-row .approve-btn { flex: 2; }
+
+.reject-btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  background: #FFFFFF;
+  color: #C0392B;
+  padding: 13px;
+  border: 1.5px solid #E8B4B0;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.reject-btn:hover:not(:disabled) {
+  background: #FDE8E8;
+  border-color: #C0392B;
+}
+.reject-btn:disabled { opacity: 0.4; cursor: default; }
+
+.rejected-msg {
+  font-size: 13px;
+  font-weight: 500;
+  color: #C0392B;
+  background: #FDE8E8;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
 }
 
 .approve-btn {
