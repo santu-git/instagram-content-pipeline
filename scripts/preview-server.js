@@ -164,7 +164,27 @@ app.get('/api/scheduled-posts', (req, res) => {
   res.json(posts);
 });
 
-app.listen(PORT, () => {
+async function publishDuePosts() {
+  const db = getDb();
+  const due = db.prepare(`
+    SELECT id FROM scheduled_posts
+    WHERE status = 'scheduled' AND scheduled_time <= datetime('now')
+  `).all();
+  db.close();
+
+  for (const { id } of due) {
+    console.log(`[scheduler] Publishing: ${id}`);
+    try {
+      await publishNow(id);
+    } catch (err) {
+      console.error(`[scheduler] Failed to publish ${id}:`, err.message);
+    }
+  }
+}
+
+setInterval(publishDuePosts, 60_000);
+
+app.listen(PORT, async () => {
   console.log(`Preview server running at http://localhost:${PORT}`);
-  console.log(`Open a post: http://localhost:${PORT}/preview/{post-id}`);
+  await publishDuePosts();
 });

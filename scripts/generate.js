@@ -29,7 +29,10 @@ async function generatePost(carouselJson) {
   const outputDir = path.resolve('output', 'posts', id);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
   const filenames = [];
 
   try {
@@ -74,6 +77,9 @@ async function generatePost(carouselJson) {
       ACL: 'public-read',
     }));
   }
+
+  // Clean up local PNGs after successful upload
+  fs.rmSync(outputDir, { recursive: true, force: true });
 
   // 3. Save to SQLite
   const db = new Database(path.resolve(DB_PATH));

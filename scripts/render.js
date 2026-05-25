@@ -27,7 +27,10 @@ async function main() {
 
   console.log(`Rendering ${slides.length} slides → ${outputDir}\n`);
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
 
   try {
     for (let i = 0; i < slides.length; i++) {

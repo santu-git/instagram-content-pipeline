@@ -16,7 +16,7 @@ const definitions = [
   },
   {
     name: 'schedule_post',
-    description: 'Schedule a carousel post to publish automatically at a future time via Instagram native scheduling. Instagram publishes without any server needing to run.',
+    description: 'Schedule a carousel post to publish automatically at a future time. The server scheduler checks every 60 seconds and publishes when the time arrives. The server must be running.',
     inputSchema: {
       type: 'object',
       properties: {

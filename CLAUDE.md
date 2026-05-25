@@ -61,15 +61,16 @@ read/modify/write operational records.
 | RESEARCH | Ask Claude Desktop to research trending beginner tech topics |
 | GENERATE | Ask Claude to generate carousel JSON for each topic |
 | REVIEW | Open preview URL in browser, review all slides |
-| SCHEDULE | Ask Claude to schedule approved posts via Instagram native scheduling |
+| SCHEDULE | Ask Claude to schedule approved posts — Droplet server publishes at scheduled time |
 | ANALYSE | End of week — ask Claude for performance summary and recommendations |
 
 ### Zero Intervention Publishing
 
-Once scheduled on Sunday, Instagram publishes automatically at set
-times throughout the week. Uses Instagram Graph API native scheduling.
-The Node app and Mac do not need to be running for scheduled posts
-to publish. Instagram handles this entirely.
+Once scheduled on Sunday, the Droplet server publishes automatically
+at the set times throughout the week. Uses a custom server-side
+scheduler (setInterval every 60s) in preview-server.js.
+The DigitalOcean Droplet must be running — the Mac does not need to be.
+Not using Instagram native scheduling (requires Facebook App in Live mode).
 
 ---
 
@@ -221,7 +222,7 @@ CREATE TABLE published_posts (
 | generate_carousel | topic, template, slides_count | id, json, preview_url |
 | preview_carousel | id | preview_url, slide_count, template |
 | publish_now | id | instagram_post_id, url, status |
-| schedule_post | id, iso_datetime | scheduled_id, publish_time, status |
+| schedule_post | id, iso_datetime | publish_time, status |
 | list_scheduled_posts | — | array of scheduled posts |
 | cancel_scheduled_post | id | id, status |
 | get_post_stats | post_id | likes, comments, saves, reach, impressions |
@@ -229,9 +230,10 @@ CREATE TABLE published_posts (
 
 ### schedule_post Note
 
-Uses Instagram Graph API native scheduling.
-Instagram publishes automatically — Mac and server do not need
-to be running at publish time.
+Uses custom server-side scheduling. The Droplet's preview-server.js
+checks every 60s for posts whose scheduled_time has arrived and
+calls publishNow(). The Droplet must be running — the Mac does not.
+Not using Instagram native scheduling (requires Facebook App Live mode).
 
 ---
 
@@ -321,8 +323,8 @@ to be running at publish time.
 - [x] Facebook Page linked to Instagram Creator account
 - [x] Instagram Graph API credentials setup
 - [x] publish_now tool using Spaces public URLs
-- [x] schedule_post tool using Instagram native scheduling
-- [ ] Verify native scheduling works on Creator account
+- [x] schedule_post tool using custom server-side scheduler (setInterval 60s in preview-server.js)
+- [x] Scheduler publishes due posts automatically on the Droplet
 - [x] list_scheduled_posts tool
 - [x] cancel_scheduled_post tool
 

@@ -163,43 +163,31 @@ async function publishNow(postId) {
   return { instagram_post_id: instagramPostId, permalink, status: 'published' };
 }
 
-// schedulePost — Instagram publishes automatically at scheduled_publish_time
+// schedulePost — saves publish time to DB; preview-server scheduler publishes at the right time
 async function schedulePost(postId, isoDatetime) {
-  const { INSTAGRAM_ACCESS_TOKEN: token, INSTAGRAM_BUSINESS_ACCOUNT_ID: accountId, DB_PATH } = env();
+  const { DB_PATH } = env();
   const db = new Database(path.resolve(DB_PATH));
 
   const post = db.prepare('SELECT * FROM scheduled_posts WHERE id = ?').get(postId);
   if (!post) throw new Error(`Post "${postId}" not found in database`);
   if (!post.spaces_folder) throw new Error(`Post "${postId}" has no Spaces folder — run upload first`);
 
-  const scheduledUnix = Math.floor(new Date(isoDatetime).getTime() / 1000);
-  const tenMinsFromNow = Math.floor(Date.now() / 1000) + 600;
-  if (scheduledUnix < tenMinsFromNow) {
+  const scheduledDate = new Date(isoDatetime);
+  if (isNaN(scheduledDate.getTime())) throw new Error('Invalid ISO datetime');
+  if (scheduledDate.getTime() < Date.now() + 600_000) {
     throw new Error('Scheduled time must be at least 10 minutes in the future');
   }
 
-  console.log(`Scheduling "${post.topic || postId}" for ${isoDatetime}...`);
-
-  // Steps A + B with scheduling params
-  const containerId = await buildCarouselContainer(post, token, accountId, {
-    scheduled_publish_time: String(scheduledUnix),
-  });
-
-  // Update DB — no Step C, Instagram publishes automatically
   db.prepare(`
     UPDATE scheduled_posts
-    SET status = 'scheduled', instagram_container_id = ?, scheduled_time = ?
+    SET status = 'scheduled', scheduled_time = ?, instagram_container_id = NULL
     WHERE id = ?
-  `).run(containerId, isoDatetime, postId);
+  `).run(isoDatetime, postId);
 
   db.close();
 
-  console.log(`  ✓ Scheduled for ${isoDatetime}`);
-  return {
-    scheduled_id: containerId,
-    publish_time: isoDatetime,
-    status: 'scheduled',
-  };
+  console.log(`  ✓ Queued "${post.topic || postId}" for ${isoDatetime}`);
+  return { publish_time: isoDatetime, status: 'scheduled' };
 }
 
 // getPostStatus — check a container's processing status
