@@ -261,10 +261,8 @@ Not using Instagram native scheduling (requires Facebook App Live mode).
 based on engagement research. Only auto-fills for posts with status `uploaded`.
 
 Optimal slots (IST / Asia/Kolkata):
-- Mon–Thu: 08:00, 20:00
-- Wed: 20:00 first (peak day)
-- Fri: 12:30, 19:00
-- Sat–Sun: 21:00
+- Mon–Fri: 16:30
+- Sat–Sun: no slot (weekend publishing disabled)
 - Conflict check: no other scheduled post within ±2 hours
 
 ---

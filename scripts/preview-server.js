@@ -68,13 +68,13 @@ function initDb() {
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 const OPTIMAL_SLOTS = {
-  0: [[21, 0, 'Sunday evening']],
-  1: [[8, 0, 'Monday morning'], [20, 0, 'Monday evening']],
-  2: [[8, 0, 'Tuesday morning'], [20, 0, 'Tuesday evening']],
-  3: [[20, 0, 'Wednesday evening (peak day)'], [8, 0, 'Wednesday morning']],
-  4: [[8, 0, 'Thursday morning'], [20, 0, 'Thursday evening']],
-  5: [[12, 30, 'Friday lunch'], [19, 0, 'Friday evening']],
-  6: [[21, 0, 'Saturday evening']],
+  0: [],
+  1: [[16, 30, 'Monday afternoon']],
+  2: [[16, 30, 'Tuesday afternoon']],
+  3: [[16, 30, 'Wednesday afternoon']],
+  4: [[16, 30, 'Thursday afternoon']],
+  5: [[16, 30, 'Friday afternoon']],
+  6: [],
 };
 
 function suggestScheduleTime(scheduledPosts) {
