@@ -34,20 +34,41 @@ JSON schema:
   "format": "post",
   "slides": [
     { "type": "cover", "headline": "...", "subtext": "..." },
-    { "type": "content", "number": "01", "headline": "...", "body": "..." },
-    { "type": "content", "number": "02", "headline": "...", "body_type": "block", "body_lines": ["INPUT:  ...", "PROCESSING: ...", "OUTPUT: ..."] },
-    { "type": "content", "number": "03", "headline": "...", "body_type": "code",  "body_lines": ["def foo():", "    return 1", "", "foo()"] },
+    {
+      "type": "content", "number": "01", "headline": "...",
+      "body": [
+        { "text": "Prose paragraph — plain sentence." }
+      ]
+    },
+    {
+      "type": "content", "number": "02", "headline": "...",
+      "body": [
+        { "text": "Intro sentence before the block." },
+        { "kind": "block", "lines": ["INPUT:  two numbers", "PROCESSING: add them", "OUTPUT: show the sum"] },
+        { "text": "Outro sentence after the block." }
+      ]
+    },
+    {
+      "type": "content", "number": "03", "headline": "...",
+      "body": [
+        { "kind": "code", "lines": ["def add(a, b):", "    return a + b", "", "print(add(2, 3))"] }
+      ]
+    },
     { "type": "cta", "headline": "...", "subline": "..." }
   ]
 }
 
+body element types:
+- { "text": "..." }              — prose paragraph (DM Sans, light weight)
+- { "kind": "block", "lines": [...] } — content block (monospace, light bg, saffron left border)
+- { "kind": "code",  "lines": [...] } — code block (monospace, dark terminal bg, saffron left border)
+
 Field rules:
 - headline: max 8 words on cover, max 6 words on content slides
-- body: max 30 words — plain prose string
-- body_lines: string array — use INSTEAD of body for structured/code content; each element is one line
-- body_type: required when body_lines is present — "block" (process flow, light bg) or "code" (actual code, dark terminal bg)
-- Use either body OR body_lines+body_type on a content slide, never both
-- Indentation in code lines uses regular spaces; empty lines are "" array elements
+- body: array of body elements (text and/or block/code elements, in any order)
+- Each body element is either { text } or { kind, lines }
+- lines: string array — each element is one line; empty lines are "" array elements
+- Indentation in code lines uses regular spaces
 - subtext: max 12 words
 - subline: max 8 words
 - number: "01" to "09" as string, not integer`;

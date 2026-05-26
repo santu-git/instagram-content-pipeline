@@ -107,11 +107,16 @@
     <div class="middle">
       <div class="content-wrapper">
         <div class="headline">{{headline}}</div>
-        {{#if body_lines}}
-          <div class="body-lines {{body_type}}">{{#each body_lines}}<div class="body-line">{{this}}</div>{{/each}}</div>
+        {{#each body}}
+          {{#if text}}<div class="body-text">{{text}}</div>{{/if}}
+          {{#if lines}}<div class="body-lines {{kind}}">{{#each lines}}<div class="body-line">{{this}}</div>{{/each}}</div>{{/if}}
         {{else}}
-          <div class="body-text">{{body}}</div>
-        {{/if}}
+          {{#if body_lines}}
+            <div class="body-lines {{body_type}}">{{#each body_lines}}<div class="body-line">{{this}}</div>{{/each}}</div>
+          {{else}}
+            <div class="body-text">{{body_text}}</div>
+          {{/if}}
+        {{/each}}
       </div>
     </div>
     <div class="bottom">

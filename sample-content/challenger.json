@@ -15,19 +15,26 @@
       "type": "content",
       "number": "01",
       "headline": "Roadmaps create false comfort",
-      "body": "Following a roadmap feels like progress. But checking boxes is not the same as building things. Comfort is not growth."
+      "body": [
+        { "text": "Following a roadmap feels like progress. But checking boxes is not the same as building things." }
+      ]
     },
     {
       "type": "content",
       "number": "02",
-      "headline": "You learn by shipping, not reading",
-      "body": "One project you finish teaches you more than ten tutorials you complete. Finish something small. Then do it again."
+      "headline": "You learn by shipping",
+      "body": [
+        { "text": "One project you finish teaches you more than ten tutorials." },
+        { "kind": "block", "lines": ["Tutorial completed  → 0 real skills", "Project shipped     → skills + confidence"] }
+      ]
     },
     {
       "type": "content",
       "number": "03",
-      "headline": "The roadmap you need is simpler",
-      "body": "Pick one language. Build one project. Show one person. Repeat. That is the whole roadmap."
+      "headline": "The only roadmap you need",
+      "body": [
+        { "kind": "block", "lines": ["Pick one language", "Build one project", "Show one person", "Repeat"] }
+      ]
     },
     {
       "type": "cta",

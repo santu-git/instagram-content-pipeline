@@ -43,7 +43,10 @@ async function generatePost(carouselJson) {
 
       if (!fs.existsSync(tplPath)) throw new Error(`Template not found: ${tplPath}`);
 
-      const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf8'))({ tag, handle, ...slide });
+      const ctx = { tag, handle, ...slide };
+      // Normalise legacy body string → body_text so templates can use {{#each body}} cleanly
+      if (typeof ctx.body === 'string') { ctx.body_text = ctx.body; delete ctx.body; }
+      const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf8'))(ctx);
       const page = await browser.newPage();
       await page.setViewport({ width: 1080, height: 1080, deviceScaleFactor: 1 });
       await page.setContent(html, { waitUntil: 'networkidle0' });

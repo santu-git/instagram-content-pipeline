@@ -329,13 +329,27 @@ draft → uploaded → approved → scheduled → published
       "type": "content",
       "number": "01",
       "headline": "Think of it like a waiter",
-      "body": "You order food. The waiter takes your request to the kitchen and brings back exactly what you asked for."
+      "body": [
+        { "text": "You order food. The waiter takes your request to the kitchen and brings back what you asked for." }
+      ]
     },
     {
       "type": "content",
       "number": "02",
       "headline": "Your app does the same",
-      "body": "Your app sends a request. The API fetches data from a server and returns exactly what your app asked for."
+      "body": [
+        { "text": "Your app sends a request." },
+        { "kind": "block", "lines": ["REQUEST  → app asks for data", "RESPONSE ← API sends result back"] },
+        { "text": "The API handles everything in between." }
+      ]
+    },
+    {
+      "type": "content",
+      "number": "03",
+      "headline": "Real example: Weather app",
+      "body": [
+        { "kind": "code", "lines": ["GET /weather?city=Mumbai", "", "{ \"temp\": 32, \"humidity\": 78 }"] }
+      ]
     },
     {
       "type": "cta",
@@ -346,6 +360,18 @@ draft → uploaded → approved → scheduled → published
 }
 ```
 
+### body — Composed Array
+
+`body` is an **array of elements** that compose the slide content in order. Mix text and blocks freely.
+
+| Element | Shape | Renders as |
+|---|---|---|
+| Text | `{ "text": "..." }` | Prose paragraph — DM Sans, light weight |
+| Content block | `{ "kind": "block", "lines": [...] }` | Monospace block, light bg, saffron left border |
+| Code block | `{ "kind": "code", "lines": [...] }` | Monospace block, dark terminal bg, saffron left border |
+
+Future elements (extensible): `{ "kind": "icon", ... }`, `{ "kind": "image", ... }`
+
 ### Field Rules
 
 | Field | Rule |
@@ -355,13 +381,12 @@ draft → uploaded → approved → scheduled → published
 | type | cover, content, or cta |
 | number | "01" to "09" as string not integer |
 | headline | max 8 words on cover, max 6 words on content |
-| body | max 30 words — plain prose string |
-| body_lines | Optional string array. Use **instead of** `body` for structured/code content. Each element is one line. |
-| body_type | Required when `body_lines` present. `"block"` = process flow (light bg, saffron border). `"code"` = actual code (dark terminal bg). |
+| body | array of `{ text }` or `{ kind, lines }` elements |
+| lines | string array — each element is one line; empty lines are `""` |
 | subtext | max 12 words |
 | subline | max 8 words |
 
-**body vs body_lines:** Use either `body` (prose) or `body_lines` + `body_type` on a content slide — never both. Indentation in code lines uses regular spaces. Empty lines are `""` array elements.
+Indentation in `lines` uses regular spaces. Elements render top-to-bottom in the order given.
 
 ---
 

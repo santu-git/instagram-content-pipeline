@@ -211,7 +211,9 @@ app.post('/api/preview-html', (req, res) => {
 
     const templatePath = path.resolve('templates', carousel.template, `${slide.type}.html`);
     const source = fs.readFileSync(templatePath, 'utf8');
-    let html = Handlebars.compile(source)({ ...carousel, ...slide });
+    const ctx = { ...carousel, ...slide };
+    if (typeof ctx.body === 'string') { ctx.body_text = ctx.body; delete ctx.body; }
+    let html = Handlebars.compile(source)(ctx);
     // Scale and center the 1080×1080 template inside the preview iframe
     html = html.replace('</body>', `
 <style>html,body{margin:0;padding:0;overflow:hidden;}</style>

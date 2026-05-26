@@ -15,19 +15,28 @@
       "type": "content",
       "number": "01",
       "headline": "Think of it like a waiter",
-      "body": "You order food. The waiter takes your request to the kitchen and brings back exactly what you asked for."
+      "body": [
+        { "text": "You order food. The waiter takes your request to the kitchen and brings back exactly what you asked for." }
+      ]
     },
     {
       "type": "content",
       "number": "02",
       "headline": "Your app does the same",
-      "body": "Your app sends a request. The API fetches data from a server and returns exactly what your app asked for."
+      "body": [
+        { "text": "Your app sends a request." },
+        { "kind": "block", "lines": ["REQUEST  → your app asks for data", "RESPONSE ← API sends back the result"] },
+        { "text": "The API handles everything in between." }
+      ]
     },
     {
       "type": "content",
       "number": "03",
       "headline": "Real example: Weather apps",
-      "body": "When you check the weather, your app calls a weather API. It returns temperature, humidity, and forecast data instantly."
+      "body": [
+        { "text": "When you check the weather, your app calls a weather API." },
+        { "kind": "code", "lines": ["GET /weather?city=Mumbai", "", "{ \"temp\": 32, \"humidity\": 78 }"] }
+      ]
     },
     {
       "type": "cta",
