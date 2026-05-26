@@ -84,16 +84,14 @@ async function generatePost(carouselJson) {
   // Clean up local PNGs after successful upload
   fs.rmSync(outputDir, { recursive: true, force: true });
 
-  // 3. Save to SQLite — read existing slides_json first because INSERT OR REPLACE
-  // deletes the row before re-inserting, which would wipe it
+  // 3. Save to SQLite — include slides_json explicitly so INSERT OR REPLACE
+  // (which deletes then re-inserts) doesn't wipe it
   const db = new Database(path.resolve(DB_PATH));
-  const existing = db.prepare('SELECT slides_json FROM scheduled_posts WHERE id = ?').get(id);
-  const slidesJsonToSave = existing?.slides_json || JSON.stringify(carouselJson);
   db.prepare(`
     INSERT OR REPLACE INTO scheduled_posts
       (id, topic, template, status, spaces_folder, slides_json, created_at)
     VALUES (?, ?, ?, 'uploaded', ?, ?, datetime('now'))
-  `).run(id, topic || null, template, spacesFolder, slidesJsonToSave);
+  `).run(id, topic || null, template, spacesFolder, JSON.stringify(carouselJson));
   db.close();
 
   const baseUrl = (NODE_APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
