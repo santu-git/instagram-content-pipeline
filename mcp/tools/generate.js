@@ -21,13 +21,19 @@ JSON schema:
   "slides": [
     { "type": "cover", "headline": "...", "subtext": "..." },
     { "type": "content", "number": "01", "headline": "...", "body": "..." },
+    { "type": "content", "number": "02", "headline": "...", "body_type": "block", "body_lines": ["INPUT:  ...", "PROCESSING: ...", "OUTPUT: ..."] },
+    { "type": "content", "number": "03", "headline": "...", "body_type": "code",  "body_lines": ["def foo():", "    return 1", "", "foo()"] },
     { "type": "cta", "headline": "...", "subline": "..." }
   ]
 }
 
 Field rules:
 - headline: max 8 words on cover, max 6 words on content slides
-- body: max 30 words
+- body: max 30 words — plain prose string
+- body_lines: string array — use INSTEAD of body for structured/code content; each element is one line
+- body_type: required when body_lines is present — "block" (process flow, light bg) or "code" (actual code, dark terminal bg)
+- Use either body OR body_lines+body_type on a content slide, never both
+- Indentation in code lines uses regular spaces; empty lines are "" array elements
 - subtext: max 12 words
 - subline: max 8 words
 - number: "01" to "09" as string, not integer`,

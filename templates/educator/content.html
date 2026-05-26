@@ -64,12 +64,25 @@
     }
     .body-text {
       font-family: 'DM Sans', sans-serif;
-      font-size: 26px;
+      font-size: 32px;
       font-weight: 300;
       line-height: 1.65;
       color: #3A3A3C;
       max-width: 780px;
     }
+    .body-lines {
+      font-family: 'DM Mono', monospace;
+      font-size: 26px;
+      font-weight: 400;
+      line-height: 1.9;
+      padding: 22px 28px;
+      border-radius: 8px;
+      border-left: 4px solid #D4860A;
+      max-width: 780px;
+    }
+    .body-line { white-space: pre; }
+    .body-lines.block { background: rgba(0, 0, 0, 0.04); color: #3A3A3C; }
+    .body-lines.code  { background: #1C1C1E; color: #FAFAFA; }
 
     .bottom {
       position: absolute;
@@ -94,7 +107,11 @@
     <div class="middle">
       <div class="content-wrapper">
         <div class="headline">{{headline}}</div>
-        <div class="body-text">{{body}}</div>
+        {{#if body_lines}}
+          <div class="body-lines {{body_type}}">{{#each body_lines}}<div class="body-line">{{this}}</div>{{/each}}</div>
+        {{else}}
+          <div class="body-text">{{body}}</div>
+        {{/if}}
       </div>
     </div>
     <div class="bottom">

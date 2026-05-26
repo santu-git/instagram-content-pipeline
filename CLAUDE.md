@@ -349,9 +349,13 @@ uploaded → approved → scheduled → published
 | type | cover, content, or cta |
 | number | "01" to "09" as string not integer |
 | headline | max 8 words on cover, max 6 words on content |
-| body | max 30 words |
+| body | max 30 words — plain prose string |
+| body_lines | Optional string array. Use **instead of** `body` for structured/code content. Each element is one line. |
+| body_type | Required when `body_lines` present. `"block"` = process flow (light bg, saffron border). `"code"` = actual code (dark terminal bg). |
 | subtext | max 12 words |
 | subline | max 8 words |
+
+**body vs body_lines:** Use either `body` (prose) or `body_lines` + `body_type` on a content slide — never both. Indentation in code lines uses regular spaces. Empty lines are `""` array elements.
 
 ---
 
