@@ -51,6 +51,8 @@
         </div>
         <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
         <div class="draft-actions">
+          <button id="save-btn" class="secondary-btn">Save JSON</button>
+          <p id="save-status" hidden></p>
           <button id="render-btn" class="approve-btn">Render PNG</button>
           <p id="render-error" class="error-msg" hidden></p>
         </div>
@@ -97,6 +99,38 @@
     });
     document.getElementById('next-slide').addEventListener('click', () => {
       if (currentSlide < totalSlides - 1) { currentSlide++; updatePreview(); }
+    });
+
+    document.getElementById('save-btn').addEventListener('click', () => {
+      const raw = document.getElementById('json-editor').value;
+      const statusEl = document.getElementById('save-status');
+      try { JSON.parse(raw); } catch {
+        statusEl.textContent = 'Invalid JSON — fix syntax before saving';
+        statusEl.className = 'error-msg';
+        statusEl.hidden = false;
+        return;
+      }
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      fetch(`/api/draft/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides_json: raw }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          statusEl.textContent = 'Saved ✓';
+          statusEl.className = 'success-msg';
+          statusEl.hidden = false;
+          setTimeout(() => { statusEl.hidden = true; }, 1500);
+        })
+        .catch(err => {
+          statusEl.textContent = err.message;
+          statusEl.className = 'error-msg';
+          statusEl.hidden = false;
+        })
+        .finally(() => { btn.disabled = false; });
     });
 
     document.getElementById('render-btn').addEventListener('click', () => {

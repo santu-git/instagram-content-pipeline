@@ -176,6 +176,17 @@ app.get('/api/post/:id', async (req, res) => {
   res.json({ ...post, image_urls: imageUrls });
 });
 
+// Update slides_json on an existing draft — used by Save JSON button
+app.patch('/api/draft/:id', (req, res) => {
+  const { slides_json } = req.body;
+  if (!slides_json) return res.status(400).json({ error: 'slides_json is required' });
+  const db = getDb();
+  const result = db.prepare(`UPDATE scheduled_posts SET slides_json = ? WHERE id = ? AND status = 'draft'`).run(slides_json, req.params.id);
+  db.close();
+  if (result.changes === 0) return res.status(404).json({ error: 'Draft not found' });
+  res.json({ id: req.params.id, status: 'saved' });
+});
+
 // Save carousel as draft (no rendering) — used by draft_carousel MCP tool
 app.post('/api/draft', (req, res) => {
   const carousel = req.body;

@@ -431,4 +431,22 @@ textarea { resize: vertical; }
   margin-top: auto;
 }
 
+.secondary-btn {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  background: transparent;
+  color: #D4860A;
+  padding: 13px;
+  border: 1.5px solid #D4860A;
+  border-radius: 10px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, color 0.15s;
+}
+
+.secondary-btn:hover:not(:disabled) { background: #FDF3E3; }
+.secondary-btn:disabled { opacity: 0.4; cursor: default; }
+
 .badge[data-status="draft"] { background: #F2F2F7; color: #3A3A3C; border: 1px solid #D1D1D6; }
