@@ -75,23 +75,13 @@ Field rules:
 
 const definitions = [
   {
-    name: 'generate_carousel',
-    description: `Render and upload an Instagram carousel post immediately.
-
-Claude generates the carousel JSON, then calls this tool.
-The tool renders PNGs, uploads to DigitalOcean Spaces, saves to DB, and returns a preview URL.
-Use this when the user wants to go straight to review without editing the JSON first.
-${schemaDoc}`,
-    inputSchema,
-  },
-  {
     name: 'draft_carousel',
-    description: `Save a carousel as a draft for review and editing before PNG generation.
+    description: `Save a carousel as a draft for the user to review before PNG rendering.
 
-Use this instead of generate_carousel when the user wants to inspect or edit
-the JSON in the portal before committing to rendering. Returns a preview_url
-where the user can edit the JSON and see a live slide preview, then click
-"Render PNG" when satisfied. No images are created until the user renders.
+ALWAYS use this tool when creating a carousel. Never render PNGs directly.
+Saves the JSON to the database (status=draft), returns a /review/:id URL where
+the user can see a live preview, edit the JSON, and click "Render PNG" when satisfied.
+No images are created until the user confirms in the portal.
 ${schemaDoc}`,
     inputSchema,
   },
@@ -100,7 +90,7 @@ ${schemaDoc}`,
 async function execute(toolName, { carousel_json }) {
   if (!carousel_json.id) carousel_json.id = uuidv4();
 
-  const endpoint = toolName === 'draft_carousel' ? '/api/draft' : '/api/generate';
+  const endpoint = '/api/draft';
   const res = await fetch(`${BASE_URL()}${endpoint}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

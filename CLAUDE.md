@@ -234,7 +234,6 @@ CREATE TABLE published_posts (
 
 | Tool | Input | Returns |
 |---|---|---|
-| generate_carousel | carousel_json | id, status, preview_url |
 | draft_carousel | carousel_json | id, status, preview_url |
 | preview_carousel | id | preview_url, slide_count, template |
 | schedule_post | id, iso_datetime | publish_time, status |
