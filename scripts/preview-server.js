@@ -29,6 +29,39 @@ function getDb() {
   return new Database(path.resolve(DB_PATH));
 }
 
+function initDb() {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scheduled_posts (
+      id TEXT PRIMARY KEY,
+      topic TEXT,
+      template TEXT,
+      instagram_container_id TEXT,
+      scheduled_time DATETIME,
+      status TEXT,
+      caption TEXT,
+      hashtags TEXT,
+      spaces_folder TEXT,
+      created_at DATETIME
+    );
+    CREATE TABLE IF NOT EXISTS published_posts (
+      id TEXT PRIMARY KEY,
+      topic TEXT,
+      template TEXT,
+      instagram_post_id TEXT,
+      instagram_permalink TEXT,
+      published_at DATETIME,
+      likes INTEGER,
+      comments INTEGER,
+      saves INTEGER,
+      reach INTEGER,
+      impressions INTEGER,
+      stats_fetched_at DATETIME
+    );
+  `);
+  db.close();
+}
+
 // ── Schedule suggestion ──────────────────────────────────────────────────────
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -266,6 +299,7 @@ async function publishDuePosts() {
 setInterval(publishDuePosts, 60_000);
 
 app.listen(PORT, async () => {
+  initDb();
   console.log(`Preview server running at http://localhost:${PORT}`);
   await publishDuePosts();
 });
