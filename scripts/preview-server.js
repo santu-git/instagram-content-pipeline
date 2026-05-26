@@ -63,6 +63,17 @@ function initDb() {
   db.close();
 }
 
+// ── Timezone helpers ─────────────────────────────────────────────────────────
+
+// datetime-local inputs submit YYYY-MM-DDTHH:mm with no timezone.
+// Append +05:30 so SQLite datetime() treats the value as IST, not UTC.
+function normalizeToIST(isoStr) {
+  if (!isoStr) return null;
+  if (isoStr.includes('+') || isoStr.endsWith('Z')) return isoStr;
+  const withSeconds = isoStr.length === 16 ? isoStr + ':00' : isoStr;
+  return withSeconds + '+05:30';
+}
+
 // ── Schedule suggestion ──────────────────────────────────────────────────────
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
@@ -287,14 +298,15 @@ app.post('/api/approve', (req, res) => {
   const { id, caption, hashtags, scheduled_time } = req.body;
   if (!id) return res.status(400).json({ error: 'id is required' });
 
-  const newStatus = scheduled_time ? 'scheduled' : 'approved';
+  const normalizedTime = normalizeToIST(scheduled_time);
+  const newStatus = normalizedTime ? 'scheduled' : 'approved';
 
   const db = getDb();
   const result = db.prepare(`
     UPDATE scheduled_posts
     SET status = ?, caption = ?, hashtags = ?, scheduled_time = ?
     WHERE id = ?
-  `).run(newStatus, caption || null, hashtags || null, scheduled_time || null, id);
+  `).run(newStatus, caption || null, hashtags || null, normalizedTime || null, id);
   db.close();
 
   if (result.changes === 0) {
@@ -320,7 +332,7 @@ app.post('/api/schedule', async (req, res) => {
   const { id, iso_datetime } = req.body;
   if (!id || !iso_datetime) return res.status(400).json({ error: 'id and iso_datetime are required' });
   try {
-    const result = await schedulePost(id, iso_datetime);
+    const result = await schedulePost(id, normalizeToIST(iso_datetime));
     res.json(result);
   } catch (err) {
     console.error('Schedule failed:', err.message);
