@@ -44,41 +44,32 @@
         <div id="dot-row" class="dot-row"></div>
       </div>
 
-      <!-- Draft mode: JSON editor + live preview -->
-      <div id="draft-panel" class="draft-panel" hidden>
-        <div class="draft-split">
-          <div class="draft-editor-col">
-            <label class="field-label">Carousel JSON</label>
-            <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
-          </div>
-          <div class="draft-preview-col">
-            <label class="field-label">Live Preview</label>
-            <iframe id="slide-preview" class="slide-preview-frame"></iframe>
-            <div class="draft-nav">
-              <button id="prev-slide" class="nav-btn">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M11 13.5L6.5 9L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-              <span id="draft-counter" class="slide-counter">1 / 1</span>
-              <button id="next-slide" class="nav-btn">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+      <!-- Draft mode: live slide preview (JSON editor is in right panel) -->
+      <div id="draft-preview-section" class="carousel-section" hidden>
+        <div class="carousel-wrapper">
+          <iframe id="slide-preview" class="slide-preview-frame"></iframe>
         </div>
-        <button id="render-btn" class="approve-btn">Render PNG</button>
-        <p id="render-error" class="error-msg" hidden></p>
+        <div class="carousel-controls">
+          <button id="prev-slide" class="nav-btn" disabled aria-label="Previous slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 13.5L6.5 9L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="draft-counter" class="slide-counter">1 / 1</span>
+          <button id="next-slide" class="nav-btn" aria-label="Next slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div id="load-error" class="load-error" hidden></div>
     </div>
 
-    <!-- RIGHT — metadata form (hidden in draft mode) -->
+    <!-- RIGHT — metadata form (normal) or JSON editor (draft) -->
     <div id="right-panel" class="right-panel">
-      <div class="right-inner">
+      <div id="right-inner" class="right-inner">
         <div class="right-header">
           <span class="right-title">Post Details</span>
         </div>
@@ -109,6 +100,18 @@
           <p id="rejected-msg" class="rejected-msg" hidden>Post rejected.</p>
           <p id="cancelled-msg" class="cancelled-msg" hidden>Schedule cancelled. You can reschedule and re-approve.</p>
           <p id="error-msg" class="error-msg" hidden></p>
+        </div>
+      </div>
+
+      <!-- Draft mode: JSON editor replaces metadata form -->
+      <div id="draft-right" class="right-inner draft-right" hidden>
+        <div class="right-header">
+          <span class="right-title">Carousel JSON</span>
+        </div>
+        <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
+        <div class="draft-actions">
+          <button id="render-btn" class="approve-btn">Render PNG</button>
+          <p id="render-error" class="error-msg" hidden></p>
         </div>
       </div>
     </div>
@@ -261,8 +264,9 @@
         // ── Draft mode ──
         if (post.status === 'draft') {
           document.getElementById('carousel-section').hidden = true;
-          document.getElementById('right-panel').hidden = true;
-          document.getElementById('draft-panel').hidden = false;
+          document.getElementById('draft-preview-section').hidden = false;
+          document.getElementById('right-inner').hidden = true;
+          document.getElementById('draft-right').hidden = false;
           initDraftEditor(post.slides_json || '{}');
           return;
         }
