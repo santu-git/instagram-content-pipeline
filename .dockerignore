@@ -1,0 +1,13 @@
+node_modules/
+.env
+output/
+data/
+.git/
+.DS_Store
+*.log
+layout-test.html
+layout-test.png
+sample-content/
+CLAUDE.md
+BRAND.md
+DESIGN.md

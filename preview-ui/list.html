@@ -16,6 +16,9 @@
 
     .page-header {
       margin-bottom: 40px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
     }
 
     .page-header h1 {
@@ -30,6 +33,16 @@
       font-size: 14px;
       color: #8E8E93;
     }
+
+    .header-nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: #D4860A;
+      text-decoration: none;
+      padding-top: 6px;
+      white-space: nowrap;
+    }
+    .header-nav-link:hover { color: #B8730A; }
 
     /* Post cards */
     .posts-list {
@@ -163,8 +176,11 @@
 <body>
   <div class="page">
     <div class="page-header">
-      <h1>Posts</h1>
-      <p>All carousel posts and their current status.</p>
+      <div>
+        <h1>Posts</h1>
+        <p>All carousel posts and their current status.</p>
+      </div>
+      <a href="/calendar" class="header-nav-link">Calendar →</a>
     </div>
 
     <div id="posts-list" class="posts-list">
@@ -207,7 +223,7 @@
         container.innerHTML = '';
         posts.forEach(post => {
           const a = document.createElement('a');
-          a.href = `/preview/${post.id}`;
+          a.href = post.status === 'draft' ? `/review/${post.id}` : `/preview/${post.id}`;
           a.className = 'post-card';
 
           const scheduled = post.scheduled_time ? formatScheduled(post.scheduled_time) : null;

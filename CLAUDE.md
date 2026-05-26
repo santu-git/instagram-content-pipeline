@@ -18,24 +18,29 @@
 | Layer | Where It Runs |
 |---|---|
 | Claude Desktop | Mac (local) |
-| MCP Server | Mac (local) — communicates with remote Node app via HTTP |
-| Node.js App | DigitalOcean Droplet (remote server) |
-| Database | SQLite on DigitalOcean Droplet |
+| MCP Server | Mac (local) — communicates with Node app via HTTP |
+| Node.js App | Docker container on Mac (local) |
+| Database | SQLite — bind-mounted volume `./data` persists across container restarts |
 | Static Assets | DigitalOcean Spaces (S3-compatible) |
-| Preview Server | DigitalOcean Droplet (remote) |
-| Instagram Graph API | Called from DigitalOcean Droplet |
+| Preview Server | Docker container on Mac (http://localhost:3000) |
+| Instagram Graph API | Called from Docker container |
+
+> **Future:** Move Docker container to DigitalOcean Droplet for 24/7 scheduling without keeping Mac on.
 
 ### Infrastructure Decisions
 
 **MCP runs locally on Mac** so Claude Desktop connects without tunneling.
-MCP server makes HTTP API calls to the Node.js app on the Droplet.
+MCP server makes HTTP API calls to the Node app at `http://localhost:3000`.
 
-**SQLite on Droplet** for all operational data — scheduled posts,
-published posts, stats. File-based, zero separate server needed,
-full SQL queries, perfect for 3–4 posts per week scale.
+**Docker on Mac** containerises the Node app with Puppeteer + Chromium.
+SQLite data persists via `./data:/app/data` volume mount in docker-compose.yml.
 
-**DigitalOcean Spaces** for static assets only — generated PNGs and
-preview pages that need public URLs. Not used for operational data.
+**SQLite** for all operational data — scheduled posts, published posts, stats.
+File-based, zero separate server needed, full SQL queries, perfect for
+3–4 posts per week scale.
+
+**DigitalOcean Spaces** for static assets only — generated PNGs that need
+public URLs for Instagram. Not used for operational data.
 Spaces is object storage, not a database — not suitable for
 read/modify/write operational records.
 
@@ -61,15 +66,18 @@ read/modify/write operational records.
 | RESEARCH | Ask Claude Desktop to research trending beginner tech topics |
 | GENERATE | Ask Claude to generate carousel JSON for each topic |
 | REVIEW | Open preview URL in browser, review all slides |
-| SCHEDULE | Ask Claude to schedule approved posts via Instagram native scheduling |
+| SCHEDULE | Ask Claude to schedule approved posts — Droplet server publishes at scheduled time |
 | ANALYSE | End of week — ask Claude for performance summary and recommendations |
 
 ### Zero Intervention Publishing
 
-Once scheduled on Sunday, Instagram publishes automatically at set
-times throughout the week. Uses Instagram Graph API native scheduling.
-The Node app and Mac do not need to be running for scheduled posts
-to publish. Instagram handles this entirely.
+Once scheduled on Sunday, the Docker container publishes automatically
+at the set times throughout the week. Two-part scheduler in preview-server.js:
+- **Startup sweep**: publishes any overdue posts immediately when the container starts
+- **Background interval**: checks every 60s and publishes posts as their time arrives
+
+The Docker container must be running. The Mac does not need to be awake.
+Not using Instagram native scheduling (requires Facebook App in Live mode).
 
 ---
 
@@ -81,18 +89,18 @@ to publish. Instagram handles this entirely.
 Claude Desktop (Mac)
        ↓ ↑ MCP Protocol (local)
 MCP Server (Mac — localhost)
-       ↓ ↑ HTTP API calls
-Node.js App (DigitalOcean Droplet)
+       ↓ ↑ HTTP API calls to localhost:3000
+Node.js App (Docker — Mac)
        ↓                      ↓
 Puppeteer                Instagram
 Renderer                 Graph API
        ↓                      ↓
 DigitalOcean             Publish Now /
-Spaces (S3)              Schedule Post /
-Public PNG URLs          Get Stats
-       ↓                      ↓
-SQLite Database          Express Preview
-(Droplet)                Server (Droplet)
+Spaces (S3)              Schedule Post
+Public PNG URLs
+       ↓
+SQLite Database
+(./data volume)
 scheduled_posts
 published_posts
 ```
@@ -121,8 +129,9 @@ Claude runs via Claude Desktop subscription through MCP protocol.
 | Preview Server | Express.js |
 | MCP Server | @modelcontextprotocol/sdk |
 | Storage | DigitalOcean Spaces via AWS SDK (S3-compatible) |
-| Scheduler | Instagram Graph API native scheduling |
+| Scheduler | Custom setInterval (60s) + startup sweep in preview-server.js |
 | Publishing | Instagram Graph API |
+| Containerisation | Docker + docker-compose |
 | AI Brain | Claude Desktop for Mac via MCP |
 
 ---
@@ -134,6 +143,9 @@ instagram-content-pipeline/
 ├── CLAUDE.md
 ├── BRAND.md
 ├── DESIGN.md
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
 ├── package.json
 ├── .env
 ├── .gitignore
@@ -153,8 +165,10 @@ instagram-content-pipeline/
 ├── /scripts
 │   ├── render.js
 │   ├── upload.js
+│   ├── generate.js
 │   ├── preview-server.js
-│   └── publish.js
+│   ├── publish.js
+│   └── init-db.js
 ├── /mcp
 │   ├── server.js
 │   └── /tools
@@ -164,12 +178,14 @@ instagram-content-pipeline/
 │       ├── stats.js
 │       └── queue.js
 ├── /preview-ui
-│   ├── index.html
+│   ├── index.html      ← post preview + approve form
+│   ├── list.html       ← posts dashboard
+│   ├── calendar.html   ← month-view content calendar
 │   └── styles.css
 ├── /data
 │   └── instagram-pipeline.db
 ├── /output
-│   ├── /posts
+│   ├── /posts          ← cleared automatically after Spaces upload
 │   └── /stories
 └── /sample-content
     ├── educator.json
@@ -218,20 +234,76 @@ CREATE TABLE published_posts (
 
 | Tool | Input | Returns |
 |---|---|---|
-| generate_carousel | topic, template, slides_count | id, json, preview_url |
+| draft_carousel | carousel_json | id, status, preview_url |
 | preview_carousel | id | preview_url, slide_count, template |
-| publish_now | id | instagram_post_id, url, status |
-| schedule_post | id, iso_datetime | scheduled_id, publish_time, status |
+| schedule_post | id, iso_datetime | publish_time, status |
 | list_scheduled_posts | — | array of scheduled posts |
 | cancel_scheduled_post | id | id, status |
 | get_post_stats | post_id | likes, comments, saves, reach, impressions |
 | get_weekly_summary | — | posts, total_reach, top_post, engagement_rate |
 
+### draft_carousel vs generate_carousel
+
+- **`draft_carousel`** — use when the user wants to review or edit the JSON before PNG rendering. Opens a portal with a JSON editor + live slide preview. User clicks **Render PNG** when satisfied. No images created until then.
+- **`generate_carousel`** — use when the user wants to go straight to review the rendered images without editing JSON first. Renders PNGs immediately and uploads to Spaces.
+
 ### schedule_post Note
 
-Uses Instagram Graph API native scheduling.
-Instagram publishes automatically — Mac and server do not need
-to be running at publish time.
+Uses custom server-side scheduling. preview-server.js checks every 60s
+for posts whose scheduled_time has arrived and calls publishNow().
+On container start, overdue posts are published immediately (startup sweep).
+The Docker container must be running — the Mac does not need to be awake.
+Not using Instagram native scheduling (requires Facebook App Live mode).
+
+### Schedule Suggestion
+
+`GET /api/suggest-schedule` returns the next optimal IST publish time
+based on engagement research. Only auto-fills for posts with status `uploaded`.
+
+Optimal slots (IST / Asia/Kolkata):
+- Mon–Fri: 16:30
+- Sat–Sun: no slot (weekend publishing disabled)
+- Conflict check: no other scheduled post within ±2 hours
+
+---
+
+## Post Status Lifecycle
+
+| Status | Meaning | User Actions Available |
+|---|---|---|
+| `draft` | JSON saved by `draft_carousel` tool. No images rendered yet. User edits JSON + clicks Render PNG to advance. | Edit JSON in portal, Render PNG |
+| `uploaded` | Post just created by Claude (or rendered from draft). Images in Spaces, nothing decided yet. | Approve, Reject |
+| `approved` | Content approved but **no schedule time set**. Will not publish until scheduled via MCP. | Reject |
+| `scheduled` | Approved **with a schedule time**. Server auto-publishes at that time (60s check loop). | Reject, Cancel Schedule |
+| `published` | Successfully posted to Instagram. Terminal state. | None |
+| `rejected` | Content rejected permanently. Will never publish. Terminal state. | None |
+| `cancelled` | Schedule was cancelled (timing issue, not content). Can be re-approved. | Approve, Reject |
+
+### Status Flow
+
+```
+draft → uploaded → approved → scheduled → published
+           ↓           ↓          ↓
+        rejected    rejected    cancelled → (back to approved/scheduled)
+                                rejected
+```
+
+### Key Distinctions
+
+- **`approved`** vs **`scheduled`**: Clicking Approve with a schedule time filled in → status becomes `scheduled` immediately. Approve with no time → status stays `approved` (must schedule later via MCP tool).
+- **`cancelled`** = wrong time, good content. Re-approvable — set a new schedule time and approve again.
+- **`rejected`** = wrong content. Terminal — post is permanently done and will never publish.
+
+### Preview Page Button Visibility
+
+| Status | Approve | Reject | Cancel Schedule |
+|---|---|---|---|
+| `uploaded` | enabled | enabled | hidden |
+| `approved` | disabled | enabled | hidden |
+| `scheduled` | disabled | enabled | **visible** |
+| `published` | disabled | disabled | hidden |
+| `rejected` | disabled | disabled | hidden |
+| `cancelled` | enabled | enabled | hidden |
 
 ---
 
@@ -254,13 +326,27 @@ to be running at publish time.
       "type": "content",
       "number": "01",
       "headline": "Think of it like a waiter",
-      "body": "You order food. The waiter takes your request to the kitchen and brings back exactly what you asked for."
+      "body": [
+        { "text": "You order food. The waiter takes your request to the kitchen and brings back what you asked for." }
+      ]
     },
     {
       "type": "content",
       "number": "02",
       "headline": "Your app does the same",
-      "body": "Your app sends a request. The API fetches data from a server and returns exactly what your app asked for."
+      "body": [
+        { "text": "Your app sends a request." },
+        { "kind": "block", "lines": ["REQUEST  → app asks for data", "RESPONSE ← API sends result back"] },
+        { "text": "The API handles everything in between." }
+      ]
+    },
+    {
+      "type": "content",
+      "number": "03",
+      "headline": "Real example: Weather app",
+      "body": [
+        { "kind": "code", "lines": ["GET /weather?city=Mumbai", "", "{ \"temp\": 32, \"humidity\": 78 }"] }
+      ]
     },
     {
       "type": "cta",
@@ -271,6 +357,18 @@ to be running at publish time.
 }
 ```
 
+### body — Composed Array
+
+`body` is an **array of elements** that compose the slide content in order. Mix text and blocks freely.
+
+| Element | Shape | Renders as |
+|---|---|---|
+| Text | `{ "text": "..." }` | Prose paragraph — DM Sans, light weight |
+| Content block | `{ "kind": "block", "lines": [...] }` | Monospace block, light bg, saffron left border |
+| Code block | `{ "kind": "code", "lines": [...] }` | Monospace block, dark terminal bg, saffron left border |
+
+Future elements (extensible): `{ "kind": "icon", ... }`, `{ "kind": "image", ... }`
+
 ### Field Rules
 
 | Field | Rule |
@@ -280,9 +378,12 @@ to be running at publish time.
 | type | cover, content, or cta |
 | number | "01" to "09" as string not integer |
 | headline | max 8 words on cover, max 6 words on content |
-| body | max 30 words |
+| body | array of `{ text }` or `{ kind, lines }` elements |
+| lines | string array — each element is one line; empty lines are `""` |
 | subtext | max 12 words |
 | subline | max 8 words |
+
+Indentation in `lines` uses regular spaces. Elements render top-to-bottom in the order given.
 
 ---
 
@@ -318,15 +419,29 @@ to be running at publish time.
 
 ### Phase 4 — Instagram Integration
 
-- [ ] Facebook Page linked to Instagram Creator account
-- [ ] Instagram Graph API credentials setup
-- [ ] publish_now tool using Spaces public URLs
-- [ ] schedule_post tool using Instagram native scheduling
-- [ ] Verify native scheduling works on Creator account
-- [ ] list_scheduled_posts tool
-- [ ] cancel_scheduled_post tool
+- [x] Facebook Page linked to Instagram Creator account
+- [x] Instagram Graph API credentials setup
+- [x] publish_now tool using Spaces public URLs
+- [x] schedule_post tool using custom server-side scheduler (setInterval 60s in preview-server.js)
+- [x] Scheduler publishes due posts automatically on the Droplet
+- [x] list_scheduled_posts tool
+- [x] cancel_scheduled_post tool
 
-### Phase 5 — Analytics
+### Phase 5 — Docker + UI Enhancements
+
+- [x] Dockerfile (node:20-slim + Chromium for Puppeteer)
+- [x] docker-compose.yml with SQLite volume mount (./data:/app/data)
+- [x] .dockerignore
+- [x] Puppeteer --no-sandbox args for Docker
+- [x] Output folder auto-cleanup after Spaces upload
+- [x] Back button on preview page
+- [x] Smart schedule suggestion (IST optimal slots, auto-fills on page load)
+- [x] Content calendar — month view at /calendar
+- [x] Scheduler query fix: datetime(scheduled_time) for ISO timezone strings
+- [x] Reject button — marks post as rejected (terminal), clears scheduled_time
+- [x] Cancel Schedule button — visible only for scheduled posts, reverts to cancelled (re-approvable)
+
+### Phase 6 — Analytics
 
 - [ ] get_post_stats tool
 - [ ] get_weekly_summary tool
@@ -337,7 +452,7 @@ to be running at publish time.
 ## Environment Variables
 
 ```
-# DigitalOcean Droplet .env
+# .env (shared — used by both Docker container and MCP server on Mac)
 INSTAGRAM_ACCESS_TOKEN=
 INSTAGRAM_BUSINESS_ACCOUNT_ID=
 FACEBOOK_PAGE_ID=
@@ -348,9 +463,7 @@ DO_SPACES_BUCKET=
 DO_SPACES_CDN_URL=
 DB_PATH=./data/instagram-pipeline.db
 PORT=3000
-
-# MCP Server Mac .env
-NODE_APP_BASE_URL=https://your-droplet-ip-or-domain
+NODE_APP_BASE_URL=http://localhost:3000
 ```
 
 ---
@@ -386,17 +499,30 @@ NODE_APP_BASE_URL=https://your-droplet-ip-or-domain
 ## How to Run
 
 ```bash
-# Render slides from JSON
-node scripts/render.js --template educator --input sample-content/educator.json
+# Build Docker image (once, or after code changes)
+docker compose build
 
-# Upload rendered PNGs to Spaces
-node scripts/upload.js --input output/posts/post-uuid/
+# Start the app (publishes any overdue posts on startup)
+docker compose up
 
-# Start preview server on Droplet
+# Stop
+docker compose down
+
+# Initialise SQLite database (first time only)
+docker compose exec app node scripts/init-db.js
+
+# Start MCP server on Mac (separate terminal)
+node mcp/server.js
+```
+
+### Direct (no Docker)
+
+```bash
+# Start preview server directly
 node scripts/preview-server.js
 
-# Start MCP server on Mac
-node mcp/server.js
+# Render slides from JSON (CLI)
+node scripts/render.js --template educator --input sample-content/educator.json
 ```
 
 ---

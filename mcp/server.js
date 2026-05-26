@@ -8,8 +8,26 @@ const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontext
 
 const generateTool = require('./tools/generate');
 const previewTool  = require('./tools/preview');
+const publishTool  = require('./tools/publish');
+const queueTool    = require('./tools/queue');
 
-const TOOLS = [generateTool, previewTool];
+// Single-tool modules: { definition, execute(args) }
+// Multi-tool modules:  { definitions, execute(toolName, args) }
+const TOOLS = [
+  ...generateTool.definitions.map(def => ({
+    definition: def,
+    execute: args => generateTool.execute(def.name, args),
+  })),
+  { definition: previewTool.definition,  execute: args => previewTool.execute(args) },
+  ...publishTool.definitions.map(def => ({
+    definition: def,
+    execute: args => publishTool.execute(def.name, args),
+  })),
+  ...queueTool.definitions.map(def => ({
+    definition: def,
+    execute: args => queueTool.execute(def.name, args),
+  })),
+];
 
 const server = new Server(
   { name: 'instagram-pipeline', version: '1.0.0' },

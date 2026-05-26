@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Draft</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="layout">
+
+    <!-- LEFT — live slide preview -->
+    <div class="left-panel">
+      <a href="/" class="back-link">← Posts</a>
+      <div class="post-header">
+        <div class="badges">
+          <span id="template-badge" class="badge"></span>
+          <span id="status-badge" class="badge"></span>
+        </div>
+        <h1 id="topic">Loading…</h1>
+        <p id="post-id" class="post-id"></p>
+      </div>
+
+      <div class="carousel-section">
+        <div class="carousel-wrapper">
+          <iframe id="slide-preview" class="slide-preview-frame"></iframe>
+        </div>
+        <div class="carousel-controls">
+          <button id="prev-slide" class="nav-btn" disabled aria-label="Previous slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 13.5L6.5 9L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="slide-counter" class="slide-counter">1 / 1</span>
+          <button id="next-slide" class="nav-btn" aria-label="Next slide">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="load-error" class="load-error" hidden></div>
+    </div>
+
+    <!-- RIGHT — JSON editor -->
+    <div class="right-panel">
+      <div class="right-inner draft-right">
+        <div class="right-header">
+          <span class="right-title">Carousel JSON</span>
+        </div>
+        <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
+        <div class="draft-actions">
+          <button id="save-btn" class="secondary-btn">Save JSON</button>
+          <p id="save-status" hidden></p>
+          <button id="render-btn" class="approve-btn">Render PNG</button>
+          <p id="render-error" class="error-msg" hidden></p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const postId = location.pathname.split('/').filter(Boolean).pop();
+    document.getElementById('post-id').textContent = postId;
+
+    let currentSlide = 0;
+    let totalSlides = 1;
+    let debounceTimer = null;
+
+    function updatePreview() {
+      const raw = document.getElementById('json-editor').value;
+      try {
+        const parsed = JSON.parse(raw);
+        totalSlides = parsed.slides?.length || 1;
+        currentSlide = Math.min(currentSlide, totalSlides - 1);
+        document.getElementById('slide-counter').textContent = `${currentSlide + 1} / ${totalSlides}`;
+        document.getElementById('prev-slide').disabled = currentSlide === 0;
+        document.getElementById('next-slide').disabled = currentSlide === totalSlides - 1;
+      } catch {}
+
+      fetch('/api/preview-html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides_json: raw, slide_index: currentSlide }),
+      })
+        .then(r => r.text())
+        .then(html => { document.getElementById('slide-preview').srcdoc = html; });
+    }
+
+    document.getElementById('json-editor').addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 400);
+    });
+
+    document.getElementById('prev-slide').addEventListener('click', () => {
+      if (currentSlide > 0) { currentSlide--; updatePreview(); }
+    });
+    document.getElementById('next-slide').addEventListener('click', () => {
+      if (currentSlide < totalSlides - 1) { currentSlide++; updatePreview(); }
+    });
+
+    document.getElementById('save-btn').addEventListener('click', () => {
+      const raw = document.getElementById('json-editor').value;
+      const statusEl = document.getElementById('save-status');
+      try { JSON.parse(raw); } catch {
+        statusEl.textContent = 'Invalid JSON — fix syntax before saving';
+        statusEl.className = 'error-msg';
+        statusEl.hidden = false;
+        return;
+      }
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      fetch(`/api/draft/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides_json: raw }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          statusEl.textContent = 'Saved ✓';
+          statusEl.className = 'success-msg';
+          statusEl.hidden = false;
+          setTimeout(() => { statusEl.hidden = true; }, 1500);
+        })
+        .catch(err => {
+          statusEl.textContent = err.message;
+          statusEl.className = 'error-msg';
+          statusEl.hidden = false;
+        })
+        .finally(() => { btn.disabled = false; });
+    });
+
+    document.getElementById('render-btn').addEventListener('click', () => {
+      const raw = document.getElementById('json-editor').value;
+      try { JSON.parse(raw); } catch {
+        document.getElementById('render-error').textContent = 'Invalid JSON — fix syntax before rendering';
+        document.getElementById('render-error').hidden = false;
+        return;
+      }
+      const btn = document.getElementById('render-btn');
+      btn.disabled = true;
+      btn.textContent = 'Rendering… (this takes ~30s)';
+      document.getElementById('render-error').hidden = true;
+
+      fetch(`/api/render/${postId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slides_json: raw }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          location.href = `/preview/${postId}`;
+        })
+        .catch(err => {
+          document.getElementById('render-error').textContent = err.message;
+          document.getElementById('render-error').hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Render PNG';
+        });
+    });
+
+    fetch(`/api/post/${postId}`)
+      .then(r => r.json())
+      .then(post => {
+        if (post.error) {
+          document.getElementById('load-error').textContent = post.error;
+          document.getElementById('load-error').hidden = false;
+          document.getElementById('topic').textContent = 'Not found';
+          return;
+        }
+
+        document.title = `Review: ${post.topic || postId}`;
+        document.getElementById('topic').textContent = post.topic || postId;
+
+        const tb = document.getElementById('template-badge');
+        tb.textContent = post.template;
+        tb.dataset.template = post.template;
+
+        const sb = document.getElementById('status-badge');
+        sb.textContent = post.status;
+        sb.dataset.status = post.status;
+
+        if (post.status !== 'draft') {
+          location.href = `/preview/${postId}`;
+          return;
+        }
+
+        try {
+          document.getElementById('json-editor').value =
+            JSON.stringify(JSON.parse(post.slides_json || '{}'), null, 2);
+        } catch {
+          document.getElementById('json-editor').value = post.slides_json || '';
+        }
+        updatePreview();
+      })
+      .catch(() => {
+        document.getElementById('load-error').textContent = 'Could not reach the server.';
+        document.getElementById('load-error').hidden = false;
+      });
+  </script>
+</body>
+</html>

@@ -9,8 +9,9 @@
 <body>
   <div class="layout">
 
-    <!-- 70% LEFT — slide viewer -->
+    <!-- LEFT — slide viewer -->
     <div class="left-panel">
+      <a href="/" class="back-link">← Posts</a>
       <div class="post-header">
         <div class="badges">
           <span id="template-badge" class="badge"></span>
@@ -20,7 +21,8 @@
         <p id="post-id" class="post-id"></p>
       </div>
 
-      <div class="carousel-section">
+      <!-- Normal carousel view -->
+      <div id="carousel-section" class="carousel-section">
         <div class="carousel-wrapper">
           <div id="carousel-track" class="carousel-track"></div>
         </div>
@@ -45,8 +47,8 @@
       <div id="load-error" class="load-error" hidden></div>
     </div>
 
-    <!-- 30% RIGHT — metadata form -->
-    <div class="right-panel">
+    <!-- RIGHT — metadata form -->
+    <div id="right-panel" class="right-panel">
       <div class="right-inner">
         <div class="right-header">
           <span class="right-title">Post Details</span>
@@ -63,13 +65,20 @@
         </div>
 
         <div class="field">
-          <label for="scheduled-time">Schedule Time</label>
+          <label id="schedule-label" for="scheduled-time">Schedule Time</label>
           <input id="scheduled-time" type="datetime-local">
+          <small id="schedule-hint" class="schedule-hint"></small>
         </div>
 
         <div class="approve-section">
-          <button id="approve-btn" class="approve-btn">Approve Post</button>
+          <div class="action-row">
+            <button id="reject-btn" class="reject-btn">Reject</button>
+            <button id="approve-btn" class="approve-btn">Approve</button>
+          </div>
+          <button id="cancel-btn" class="cancel-btn" hidden>Cancel Schedule</button>
           <p id="success-msg" class="success-msg" hidden>Post approved successfully.</p>
+          <p id="rejected-msg" class="rejected-msg" hidden>Post rejected.</p>
+          <p id="cancelled-msg" class="cancelled-msg" hidden>Schedule cancelled. You can reschedule and re-approve.</p>
           <p id="error-msg" class="error-msg" hidden></p>
         </div>
       </div>
@@ -89,9 +98,7 @@
     const counter = document.getElementById('slide-counter');
     const dotRow = document.getElementById('dot-row');
 
-    function slideWidth() {
-      return track.parentElement.offsetWidth;
-    }
+    function slideWidth() { return track.parentElement.offsetWidth; }
 
     function updateSlideWidths() {
       const w = slideWidth();
@@ -120,6 +127,8 @@
 
     window.addEventListener('resize', () => { updateSlideWidths(); goTo(currentIndex, false); });
 
+    // ── Post data load ───────────────────────────────────────────────────────────
+
     fetch(`/api/post/${postId}`)
       .then(r => r.json())
       .then(post => {
@@ -141,12 +150,46 @@
         sb.textContent = post.status;
         sb.dataset.status = post.status;
 
-        if (post.caption)        document.getElementById('caption').value = post.caption;
-        if (post.hashtags)       document.getElementById('hashtags').value = post.hashtags;
-        if (post.scheduled_time) document.getElementById('scheduled-time').value = post.scheduled_time.replace(' ', 'T').slice(0, 16);
-        if (post.status === 'approved') {
+        if (post.status === 'draft') {
+          location.href = `/review/${postId}`;
+          return;
+        }
+
+
+        if (post.caption)  document.getElementById('caption').value = post.caption;
+        if (post.hashtags) document.getElementById('hashtags').value = post.hashtags;
+        const displayTime = post.scheduled_time || post.published_at;
+        if (displayTime) {
+          document.getElementById('scheduled-time').value = displayTime.replace(' ', 'T').slice(0, 16);
+          if (!post.scheduled_time && post.published_at) {
+            document.getElementById('schedule-label').textContent = 'Published At';
+            document.getElementById('scheduled-time').readOnly = true;
+          }
+        } else if (post.status === 'uploaded') {
+          fetch('/api/suggest-schedule')
+            .then(r => r.json())
+            .then(s => {
+              if (s.suggested_time) {
+                document.getElementById('scheduled-time').value = s.suggested_time.slice(0, 16);
+                document.getElementById('schedule-hint').textContent = 'Suggested: ' + s.reason;
+              }
+            })
+            .catch(() => {});
+        }
+
+        if (['published', 'rejected'].includes(post.status)) {
+          document.getElementById('approve-btn').disabled = true;
+          document.getElementById('reject-btn').disabled = true;
+        }
+        if (['approved', 'scheduled'].includes(post.status)) {
           document.getElementById('approve-btn').disabled = true;
           document.getElementById('success-msg').hidden = false;
+        }
+        if (post.status === 'scheduled') {
+          document.getElementById('cancel-btn').hidden = false;
+        }
+        if (post.status === 'rejected') {
+          document.getElementById('rejected-msg').hidden = false;
         }
 
         totalSlides = post.image_urls.length;
@@ -203,12 +246,71 @@
           }
           document.getElementById('success-msg').hidden = false;
           const sb = document.getElementById('status-badge');
-          sb.textContent = 'approved';
-          sb.dataset.status = 'approved';
+          sb.textContent = data.status;
+          sb.dataset.status = data.status;
+          if (data.status === 'scheduled') {
+            document.getElementById('cancel-btn').hidden = false;
+          }
         })
         .catch(() => {
           document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
           document.getElementById('error-msg').hidden = false;
+          document.getElementById('approve-btn').disabled = false;
+        });
+    });
+
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      document.getElementById('cancel-btn').disabled = true;
+      document.getElementById('error-msg').hidden = true;
+
+      fetch(`/api/schedule/${postId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error-msg').textContent = data.error;
+            document.getElementById('error-msg').hidden = false;
+            document.getElementById('cancel-btn').disabled = false;
+            return;
+          }
+          document.getElementById('cancel-btn').hidden = true;
+          document.getElementById('success-msg').hidden = true;
+          document.getElementById('cancelled-msg').hidden = false;
+          document.getElementById('approve-btn').disabled = false;
+          document.getElementById('reject-btn').disabled = false;
+          const sb = document.getElementById('status-badge');
+          sb.textContent = 'cancelled';
+          sb.dataset.status = 'cancelled';
+        })
+        .catch(() => {
+          document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
+          document.getElementById('error-msg').hidden = false;
+          document.getElementById('cancel-btn').disabled = false;
+        });
+    });
+
+    document.getElementById('reject-btn').addEventListener('click', () => {
+      document.getElementById('reject-btn').disabled = true;
+      document.getElementById('approve-btn').disabled = true;
+      document.getElementById('error-msg').hidden = true;
+
+      fetch(`/api/reject/${postId}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            document.getElementById('error-msg').textContent = data.error;
+            document.getElementById('error-msg').hidden = false;
+            document.getElementById('reject-btn').disabled = false;
+            return;
+          }
+          document.getElementById('rejected-msg').hidden = false;
+          const sb = document.getElementById('status-badge');
+          sb.textContent = 'rejected';
+          sb.dataset.status = 'rejected';
+        })
+        .catch(() => {
+          document.getElementById('error-msg').textContent = 'Request failed. Is the server running?';
+          document.getElementById('error-msg').hidden = false;
+          document.getElementById('reject-btn').disabled = false;
           document.getElementById('approve-btn').disabled = false;
         });
     });

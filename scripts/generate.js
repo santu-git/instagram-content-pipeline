@@ -29,7 +29,10 @@ async function generatePost(carouselJson) {
   const outputDir = path.resolve('output', 'posts', id);
   fs.mkdirSync(outputDir, { recursive: true });
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
   const filenames = [];
 
   try {
@@ -40,7 +43,10 @@ async function generatePost(carouselJson) {
 
       if (!fs.existsSync(tplPath)) throw new Error(`Template not found: ${tplPath}`);
 
-      const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf8'))({ tag, handle, ...slide });
+      const ctx = { tag, handle, ...slide };
+      // Normalise legacy body string → body_text so templates can use {{#each body}} cleanly
+      if (typeof ctx.body === 'string') { ctx.body_text = ctx.body; delete ctx.body; }
+      const html = Handlebars.compile(fs.readFileSync(tplPath, 'utf8'))(ctx);
       const page = await browser.newPage();
       await page.setViewport({ width: 1080, height: 1080, deviceScaleFactor: 1 });
       await page.setContent(html, { waitUntil: 'networkidle0' });
@@ -75,13 +81,17 @@ async function generatePost(carouselJson) {
     }));
   }
 
-  // 3. Save to SQLite
+  // Clean up local PNGs after successful upload
+  fs.rmSync(outputDir, { recursive: true, force: true });
+
+  // 3. Save to SQLite — include slides_json explicitly so INSERT OR REPLACE
+  // (which deletes then re-inserts) doesn't wipe it
   const db = new Database(path.resolve(DB_PATH));
   db.prepare(`
     INSERT OR REPLACE INTO scheduled_posts
-      (id, topic, template, status, spaces_folder, created_at)
-    VALUES (?, ?, ?, 'uploaded', ?, datetime('now'))
-  `).run(id, topic || null, template, spacesFolder);
+      (id, topic, template, status, spaces_folder, slides_json, created_at)
+    VALUES (?, ?, ?, 'uploaded', ?, ?, datetime('now'))
+  `).run(id, topic || null, template, spacesFolder, JSON.stringify(carouselJson));
   db.close();
 
   const baseUrl = (NODE_APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
