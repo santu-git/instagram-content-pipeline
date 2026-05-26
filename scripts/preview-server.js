@@ -211,7 +211,15 @@ app.post('/api/preview-html', (req, res) => {
 
     const templatePath = path.resolve('templates', carousel.template, `${slide.type}.html`);
     const source = fs.readFileSync(templatePath, 'utf8');
-    const html = Handlebars.compile(source)({ ...carousel, ...slide });
+    let html = Handlebars.compile(source)({ ...carousel, ...slide });
+    // Scale the 1080×1080 template down to fit the preview iframe
+    html = html.replace('</body>', `
+<style>html,body{margin:0;padding:0;overflow:hidden;}</style>
+<script>(function(){
+  var s=Math.min(window.innerWidth/1080,window.innerHeight/1080);
+  document.body.style.cssText='transform:scale('+s+');transform-origin:top left;width:1080px;height:1080px;overflow:hidden;';
+})();</script>
+</body>`);
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (err) {
