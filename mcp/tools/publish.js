@@ -4,17 +4,6 @@ const BASE_URL = () => (process.env.NODE_APP_BASE_URL || 'http://localhost:3000'
 
 const definitions = [
   {
-    name: 'publish_now',
-    description: 'Publish an approved carousel post to Instagram immediately. The post must have status "approved" and uploaded slides in Spaces.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: 'Post ID to publish' },
-      },
-      required: ['id'],
-    },
-  },
-  {
     name: 'schedule_post',
     description: 'Schedule a carousel post to publish automatically at a future time. The server scheduler checks every 60 seconds and publishes when the time arrives. The server must be running.',
     inputSchema: {
@@ -29,13 +18,6 @@ const definitions = [
 ];
 
 async function execute(toolName, args) {
-  if (toolName === 'publish_now') {
-    const res = await fetch(`${BASE_URL()}/api/publish/${args.id}`, { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error || `Server error ${res.status}`);
-    return data;
-  }
-
   if (toolName === 'schedule_post') {
     const res = await fetch(`${BASE_URL()}/api/schedule`, {
       method: 'POST',

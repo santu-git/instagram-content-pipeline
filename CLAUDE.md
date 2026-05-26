@@ -236,7 +236,6 @@ CREATE TABLE published_posts (
 |---|---|---|
 | generate_carousel | topic, template, slides_count | id, json, preview_url |
 | preview_carousel | id | preview_url, slide_count, template |
-| publish_now | id | instagram_post_id, url, status |
 | schedule_post | id, iso_datetime | publish_time, status |
 | list_scheduled_posts | — | array of scheduled posts |
 | cancel_scheduled_post | id | id, status |
