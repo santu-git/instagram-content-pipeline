@@ -180,6 +180,7 @@ instagram-content-pipeline/
 ├── /preview-ui
 │   ├── index.html      ← post preview + approve form
 │   ├── list.html       ← posts dashboard
+│   ├── review.html     ← draft editor — JSON editor + live slide preview
 │   ├── calendar.html   ← month-view content calendar
 │   └── styles.css
 ├── /data
@@ -207,7 +208,9 @@ CREATE TABLE scheduled_posts (
   scheduled_time DATETIME,
   status TEXT,
   caption TEXT,
+  hashtags TEXT,
   spaces_folder TEXT,
+  slides_json TEXT,
   created_at DATETIME
 );
 
@@ -242,10 +245,11 @@ CREATE TABLE published_posts (
 | get_post_stats | post_id | likes, comments, saves, reach, impressions |
 | get_weekly_summary | — | posts, total_reach, top_post, engagement_rate |
 
-### draft_carousel vs generate_carousel
+### draft_carousel
 
-- **`draft_carousel`** — use when the user wants to review or edit the JSON before PNG rendering. Opens a portal with a JSON editor + live slide preview. User clicks **Render PNG** when satisfied. No images created until then.
-- **`generate_carousel`** — use when the user wants to go straight to review the rendered images without editing JSON first. Renders PNGs immediately and uploads to Spaces.
+ALWAYS use `draft_carousel` when creating a carousel. Never render PNGs directly.
+
+Saves carousel JSON as a `draft` and returns a `/review/:id` URL. The portal shows a live slide preview and a JSON editor. The user edits the JSON, clicks **Save JSON** for intermediate saves, and clicks **Render PNG** when satisfied. Images are only created at that point.
 
 ### schedule_post Note
 
@@ -412,7 +416,7 @@ Indentation in `lines` uses regular spaces. Elements render top-to-bottom in the
 ### Phase 3 — MCP Server
 
 - [x] MCP server scaffold on Mac
-- [x] generate_carousel tool
+- [x] draft_carousel tool
 - [x] preview_carousel tool
 - [x] Register in claude_desktop_config.json
 - [x] Test end to end from Claude Desktop
@@ -440,6 +444,8 @@ Indentation in `lines` uses regular spaces. Elements render top-to-bottom in the
 - [x] Scheduler query fix: datetime(scheduled_time) for ISO timezone strings
 - [x] Reject button — marks post as rejected (terminal), clears scheduled_time
 - [x] Cancel Schedule button — visible only for scheduled posts, reverts to cancelled (re-approvable)
+- [x] Draft mode — draft_carousel MCP tool saves JSON without rendering; review.html has JSON editor + live slide preview + Save JSON + Render PNG
+- [x] Calendar shows scheduled time (IST) on each post pill; draft posts link to /review/:id
 
 ### Phase 6 — Analytics
 
