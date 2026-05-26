@@ -14,7 +14,10 @@ const queueTool    = require('./tools/queue');
 // Single-tool modules: { definition, execute(args) }
 // Multi-tool modules:  { definitions, execute(toolName, args) }
 const TOOLS = [
-  { definition: generateTool.definition, execute: args => generateTool.execute(args) },
+  ...generateTool.definitions.map(def => ({
+    definition: def,
+    execute: args => generateTool.execute(def.name, args),
+  })),
   { definition: previewTool.definition,  execute: args => previewTool.execute(args) },
   ...publishTool.definitions.map(def => ({
     definition: def,

@@ -387,3 +387,85 @@ textarea { resize: vertical; }
   border-radius: 8px;
   text-align: center;
 }
+
+/* ── Draft mode panel ── */
+.draft-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.draft-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+}
+
+.draft-editor-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-preview-col {
+  width: 340px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3A3A3C;
+  flex-shrink: 0;
+}
+
+.json-editor {
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  border: 1.5px solid #D1D1D6;
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #FAFAFA;
+  color: #1C1C1E;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.json-editor:focus {
+  outline: none;
+  border-color: #D4860A;
+  box-shadow: 0 0 0 3px rgba(212,134,10,0.12);
+}
+
+.slide-preview-frame {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #E5E5E0;
+  border-radius: 8px;
+  background: #EDEDEA;
+  width: 100%;
+}
+
+.draft-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.badge[data-status="draft"] { background: #F2F2F7; color: #3A3A3C; border: 1px solid #D1D1D6; }

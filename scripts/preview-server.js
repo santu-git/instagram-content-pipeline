@@ -59,6 +59,7 @@ function initDb() {
       stats_fetched_at DATETIME
     );
   `);
+  try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN slides_json TEXT`); } catch {}
   db.close();
 }
 
@@ -168,6 +169,72 @@ app.get('/api/post/:id', async (req, res) => {
   }
 
   res.json({ ...post, image_urls: imageUrls });
+});
+
+// Save carousel as draft (no rendering) — used by draft_carousel MCP tool
+app.post('/api/draft', (req, res) => {
+  const carousel = req.body;
+  if (!carousel?.template || !carousel?.slides) {
+    return res.status(400).json({ error: 'carousel_json must include template and slides' });
+  }
+  if (!carousel.id) carousel.id = require('crypto').randomUUID();
+
+  const db = getDb();
+  db.prepare(`
+    INSERT OR REPLACE INTO scheduled_posts
+      (id, topic, template, status, slides_json, created_at)
+    VALUES (?, ?, ?, 'draft', ?, datetime('now'))
+  `).run(carousel.id, carousel.topic || null, carousel.template, JSON.stringify(carousel));
+  db.close();
+
+  res.json({
+    id: carousel.id,
+    status: 'draft',
+    preview_url: `${req.protocol}://${req.get('host')}/preview/${carousel.id}`,
+  });
+});
+
+// Render a single slide to HTML (no Puppeteer) — used by live preview iframe
+app.post('/api/preview-html', (req, res) => {
+  const { slides_json, slide_index = 0 } = req.body;
+  const fs = require('fs');
+  const Handlebars = require('handlebars');
+  try {
+    const carousel = JSON.parse(slides_json);
+    const slide = carousel.slides?.[slide_index];
+    if (!slide) return res.status(400).send('<p style="color:red;padding:20px">Slide not found</p>');
+
+    const templatePath = path.resolve('templates', carousel.template, `${slide.type}.html`);
+    const source = fs.readFileSync(templatePath, 'utf8');
+    const html = Handlebars.compile(source)({ ...carousel, ...slide });
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) {
+    res.status(400).send(`<pre style="color:red;padding:20px;font-family:monospace">${err.message}</pre>`);
+  }
+});
+
+// Render draft to PNGs + upload — triggered from the portal Render button
+app.post('/api/render/:id', async (req, res) => {
+  const db = getDb();
+  const post = db.prepare('SELECT slides_json FROM scheduled_posts WHERE id = ?').get(req.params.id);
+  db.close();
+
+  if (!post?.slides_json) return res.status(404).json({ error: 'Draft not found or missing JSON' });
+
+  try {
+    const carousel = req.body?.slides_json
+      ? JSON.parse(req.body.slides_json)
+      : JSON.parse(post.slides_json);
+    carousel.id = req.params.id;
+
+    const result = await generatePost(carousel);
+    result.preview_url = `${req.protocol}://${req.get('host')}/preview/${result.id}`;
+    res.json(result);
+  } catch (err) {
+    console.error('Render failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Generate carousel: render + upload + save in one call (used by MCP)

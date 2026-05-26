@@ -234,13 +234,19 @@ CREATE TABLE published_posts (
 
 | Tool | Input | Returns |
 |---|---|---|
-| generate_carousel | topic, template, slides_count | id, json, preview_url |
+| generate_carousel | carousel_json | id, status, preview_url |
+| draft_carousel | carousel_json | id, status, preview_url |
 | preview_carousel | id | preview_url, slide_count, template |
 | schedule_post | id, iso_datetime | publish_time, status |
 | list_scheduled_posts | — | array of scheduled posts |
 | cancel_scheduled_post | id | id, status |
 | get_post_stats | post_id | likes, comments, saves, reach, impressions |
 | get_weekly_summary | — | posts, total_reach, top_post, engagement_rate |
+
+### draft_carousel vs generate_carousel
+
+- **`draft_carousel`** — use when the user wants to review or edit the JSON before PNG rendering. Opens a portal with a JSON editor + live slide preview. User clicks **Render PNG** when satisfied. No images created until then.
+- **`generate_carousel`** — use when the user wants to go straight to review the rendered images without editing JSON first. Renders PNGs immediately and uploads to Spaces.
 
 ### schedule_post Note
 
@@ -268,7 +274,8 @@ Optimal slots (IST / Asia/Kolkata):
 
 | Status | Meaning | User Actions Available |
 |---|---|---|
-| `uploaded` | Post just created by Claude. Images in Spaces, nothing decided yet. | Approve, Reject |
+| `draft` | JSON saved by `draft_carousel` tool. No images rendered yet. User edits JSON + clicks Render PNG to advance. | Edit JSON in portal, Render PNG |
+| `uploaded` | Post just created by Claude (or rendered from draft). Images in Spaces, nothing decided yet. | Approve, Reject |
 | `approved` | Content approved but **no schedule time set**. Will not publish until scheduled via MCP. | Reject |
 | `scheduled` | Approved **with a schedule time**. Server auto-publishes at that time (60s check loop). | Reject, Cancel Schedule |
 | `published` | Successfully posted to Instagram. Terminal state. | None |
@@ -278,10 +285,10 @@ Optimal slots (IST / Asia/Kolkata):
 ### Status Flow
 
 ```
-uploaded → approved → scheduled → published
-    ↓           ↓          ↓
- rejected    rejected    cancelled → (back to approved/scheduled)
-                         rejected
+draft → uploaded → approved → scheduled → published
+           ↓           ↓          ↓
+        rejected    rejected    cancelled → (back to approved/scheduled)
+                                rejected
 ```
 
 ### Key Distinctions
