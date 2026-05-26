@@ -129,6 +129,11 @@ app.get('/preview/:id', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'index.html'));
 });
 
+// Serve draft review UI
+app.get('/review/:id', (req, res) => {
+  res.sendFile(path.resolve('preview-ui', 'review.html'));
+});
+
 // Return post data + Spaces image URLs
 app.get('/api/post/:id', async (req, res) => {
   const { id } = req.params;
@@ -190,7 +195,7 @@ app.post('/api/draft', (req, res) => {
   res.json({
     id: carousel.id,
     status: 'draft',
-    preview_url: `${req.protocol}://${req.get('host')}/preview/${carousel.id}`,
+    preview_url: `${req.protocol}://${req.get('host')}/review/${carousel.id}`,
   });
 });
 

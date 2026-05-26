@@ -9,7 +9,7 @@
 <body>
   <div class="layout">
 
-    <!-- LEFT — slide viewer (hidden in draft mode) -->
+    <!-- LEFT — slide viewer -->
     <div class="left-panel">
       <a href="/" class="back-link">← Posts</a>
       <div class="post-header">
@@ -44,32 +44,12 @@
         <div id="dot-row" class="dot-row"></div>
       </div>
 
-      <!-- Draft mode: live slide preview (JSON editor is in right panel) -->
-      <div id="draft-preview-section" class="carousel-section" hidden>
-        <div class="carousel-wrapper">
-          <iframe id="slide-preview" class="slide-preview-frame"></iframe>
-        </div>
-        <div class="carousel-controls">
-          <button id="prev-slide" class="nav-btn" disabled aria-label="Previous slide">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M11 13.5L6.5 9L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-          <span id="draft-counter" class="slide-counter">1 / 1</span>
-          <button id="next-slide" class="nav-btn" aria-label="Next slide">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M7 4.5L11.5 9L7 13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       <div id="load-error" class="load-error" hidden></div>
     </div>
 
-    <!-- RIGHT — metadata form (normal) or JSON editor (draft) -->
+    <!-- RIGHT — metadata form -->
     <div id="right-panel" class="right-panel">
-      <div id="right-inner" class="right-inner">
+      <div class="right-inner">
         <div class="right-header">
           <span class="right-title">Post Details</span>
         </div>
@@ -100,18 +80,6 @@
           <p id="rejected-msg" class="rejected-msg" hidden>Post rejected.</p>
           <p id="cancelled-msg" class="cancelled-msg" hidden>Schedule cancelled. You can reschedule and re-approve.</p>
           <p id="error-msg" class="error-msg" hidden></p>
-        </div>
-      </div>
-
-      <!-- Draft mode: JSON editor replaces metadata form -->
-      <div id="draft-right" class="right-inner draft-right" hidden>
-        <div class="right-header">
-          <span class="right-title">Carousel JSON</span>
-        </div>
-        <textarea id="json-editor" class="json-editor" spellcheck="false"></textarea>
-        <div class="draft-actions">
-          <button id="render-btn" class="approve-btn">Render PNG</button>
-          <p id="render-error" class="error-msg" hidden></p>
         </div>
       </div>
     </div>
@@ -159,85 +127,6 @@
 
     window.addEventListener('resize', () => { updateSlideWidths(); goTo(currentIndex, false); });
 
-    // ── Draft mode ──────────────────────────────────────────────────────────────
-
-    function initDraftEditor(slidesJson) {
-      let currentSlide = 0;
-      let totalDraftSlides = 1;
-      let debounceTimer = null;
-
-      function updatePreview() {
-        const raw = document.getElementById('json-editor').value;
-        try {
-          const parsed = JSON.parse(raw);
-          totalDraftSlides = parsed.slides?.length || 1;
-          currentSlide = Math.min(currentSlide, totalDraftSlides - 1);
-          document.getElementById('draft-counter').textContent = `${currentSlide + 1} / ${totalDraftSlides}`;
-          document.getElementById('prev-slide').disabled = currentSlide === 0;
-          document.getElementById('next-slide').disabled = currentSlide === totalDraftSlides - 1;
-        } catch {}
-
-        fetch('/api/preview-html', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slides_json: raw, slide_index: currentSlide }),
-        })
-          .then(r => r.text())
-          .then(html => { document.getElementById('slide-preview').srcdoc = html; });
-      }
-
-      document.getElementById('json-editor').addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(updatePreview, 400);
-      });
-
-      document.getElementById('prev-slide').addEventListener('click', () => {
-        if (currentSlide > 0) { currentSlide--; updatePreview(); }
-      });
-      document.getElementById('next-slide').addEventListener('click', () => {
-        if (currentSlide < totalDraftSlides - 1) { currentSlide++; updatePreview(); }
-      });
-
-      document.getElementById('render-btn').addEventListener('click', () => {
-        const raw = document.getElementById('json-editor').value;
-        try { JSON.parse(raw); } catch {
-          document.getElementById('render-error').textContent = 'Invalid JSON — fix syntax before rendering';
-          document.getElementById('render-error').hidden = false;
-          return;
-        }
-        const btn = document.getElementById('render-btn');
-        btn.disabled = true;
-        btn.textContent = 'Rendering… (this takes ~30s)';
-        document.getElementById('render-error').hidden = true;
-
-        fetch(`/api/render/${postId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slides_json: raw }),
-        })
-          .then(r => r.json())
-          .then(data => {
-            if (data.error) throw new Error(data.error);
-            location.reload();
-          })
-          .catch(err => {
-            document.getElementById('render-error').textContent = err.message;
-            document.getElementById('render-error').hidden = false;
-            btn.disabled = false;
-            btn.textContent = 'Render PNG';
-          });
-      });
-
-      // Populate editor and trigger initial preview
-      try {
-        document.getElementById('json-editor').value =
-          JSON.stringify(JSON.parse(slidesJson), null, 2);
-      } catch {
-        document.getElementById('json-editor').value = slidesJson || '';
-      }
-      updatePreview();
-    }
-
     // ── Post data load ───────────────────────────────────────────────────────────
 
     fetch(`/api/post/${postId}`)
@@ -261,17 +150,12 @@
         sb.textContent = post.status;
         sb.dataset.status = post.status;
 
-        // ── Draft mode ──
         if (post.status === 'draft') {
-          document.getElementById('carousel-section').hidden = true;
-          document.getElementById('draft-preview-section').hidden = false;
-          document.getElementById('right-inner').hidden = true;
-          document.getElementById('draft-right').hidden = false;
-          initDraftEditor(post.slides_json || '{}');
+          location.href = `/review/${postId}`;
           return;
         }
 
-        // ── Normal mode ──
+
         if (post.caption)  document.getElementById('caption').value = post.caption;
         if (post.hashtags) document.getElementById('hashtags').value = post.hashtags;
         const displayTime = post.scheduled_time || post.published_at;

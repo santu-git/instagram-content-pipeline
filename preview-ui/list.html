@@ -223,7 +223,7 @@
         container.innerHTML = '';
         posts.forEach(post => {
           const a = document.createElement('a');
-          a.href = `/preview/${post.id}`;
+          a.href = post.status === 'draft' ? `/review/${post.id}` : `/preview/${post.id}`;
           a.className = 'post-card';
 
           const scheduled = post.scheduled_time ? formatScheduled(post.scheduled_time) : null;
