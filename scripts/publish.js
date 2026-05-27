@@ -111,7 +111,7 @@ async function buildCarouselContainer(post, token, accountId, extraParams = {}) 
     console.log(`    ✓ item container: ${item.id}`);
   }
 
-  // Step B: create carousel container
+  // Step B: create carousel container and wait for it to finish processing
   console.log('  Creating carousel container...');
   const carousel = await igPost(`/${accountId}/media`, {
     media_type: 'CAROUSEL',
@@ -120,6 +120,7 @@ async function buildCarouselContainer(post, token, accountId, extraParams = {}) 
     ...extraParams,
   }, token);
 
+  await waitForContainer(carousel.id, token);
   console.log(`  ✓ carousel container: ${carousel.id}`);
   return carousel.id;
 }
