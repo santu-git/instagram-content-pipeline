@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libatk-bridge2.0-0 \
     libdrm2 \
     libx11-xcb1 \
+    fonts-noto-color-emoji \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
