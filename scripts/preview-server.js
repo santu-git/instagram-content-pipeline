@@ -385,6 +385,8 @@ app.get('/calendar', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'calendar.html'));
 });
 
+const publishingInProgress = new Set();
+
 async function publishDuePosts() {
   const db = getDb();
   const due = db.prepare(`
@@ -394,11 +396,18 @@ async function publishDuePosts() {
   db.close();
 
   for (const { id } of due) {
+    if (publishingInProgress.has(id)) {
+      console.log(`[scheduler] Skipping ${id} — publish already in progress`);
+      continue;
+    }
+    publishingInProgress.add(id);
     console.log(`[scheduler] Publishing: ${id}`);
     try {
       await publishNow(id);
     } catch (err) {
       console.error(`[scheduler] Failed to publish ${id}:`, err.message);
+    } finally {
+      publishingInProgress.delete(id);
     }
   }
 }
