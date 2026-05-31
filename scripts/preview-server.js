@@ -385,31 +385,35 @@ app.get('/calendar', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'calendar.html'));
 });
 
-const publishingInProgress = new Set();
-
 async function publishDuePosts() {
   const db = getDb();
   const due = db.prepare(`
     SELECT id FROM scheduled_posts
     WHERE status = 'scheduled' AND datetime(scheduled_time) <= datetime('now')
   `).all();
-  db.close();
 
   for (const { id } of due) {
-    if (publishingInProgress.has(id)) {
-      console.log(`[scheduler] Skipping ${id} — publish already in progress`);
+    // Atomic claim: only proceed if we flipped status from 'scheduled' → 'publishing'.
+    // If two scheduler ticks run concurrently and both see the same post, SQLite
+    // serialises the writes — only one gets changes=1, the other skips.
+    const result = db.prepare(
+      `UPDATE scheduled_posts SET status = 'publishing' WHERE id = ? AND status = 'scheduled'`
+    ).run(id);
+
+    if (result.changes === 0) {
+      console.log(`[scheduler] Skipping ${id} — already being published`);
       continue;
     }
-    publishingInProgress.add(id);
+
     console.log(`[scheduler] Publishing: ${id}`);
-    try {
-      await publishNow(id);
-    } catch (err) {
+    // Fire-and-forget: publishNow marks 'publishing' again (no-op) then updates to
+    // 'published' on success. On failure it stays 'publishing' — visible stuck state,
+    // reset manually to 'scheduled' to retry.
+    publishNow(id).catch(err => {
       console.error(`[scheduler] Failed to publish ${id}:`, err.message);
-    } finally {
-      publishingInProgress.delete(id);
-    }
+    });
   }
+  db.close();
 }
 
 setInterval(publishDuePosts, 60_000);

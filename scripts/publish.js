@@ -128,11 +128,19 @@ async function buildCarouselContainer(post, token, accountId, extraParams = {}) 
 // publishNow — render + upload must be done before calling this
 async function publishNow(postId) {
   const { INSTAGRAM_ACCESS_TOKEN: token, INSTAGRAM_BUSINESS_ACCOUNT_ID: accountId, DB_PATH } = env();
-  const db = new Database(path.resolve(DB_PATH));
 
-  const post = db.prepare('SELECT * FROM scheduled_posts WHERE id = ?').get(postId);
-  if (!post) throw new Error(`Post "${postId}" not found in database`);
-  if (!post.spaces_folder) throw new Error(`Post "${postId}" has no Spaces folder — run upload first`);
+  // Mark as 'publishing' immediately so the scheduler won't retry this post
+  // if the API calls take longer than 60s. Status stays 'publishing' on failure —
+  // a visible stuck state that requires manual reset to 'scheduled'.
+  let post;
+  {
+    const db = new Database(path.resolve(DB_PATH));
+    post = db.prepare('SELECT * FROM scheduled_posts WHERE id = ?').get(postId);
+    if (!post) { db.close(); throw new Error(`Post "${postId}" not found in database`); }
+    if (!post.spaces_folder) { db.close(); throw new Error(`Post "${postId}" has no Spaces folder — run upload first`); }
+    db.prepare(`UPDATE scheduled_posts SET status = 'publishing' WHERE id = ?`).run(postId);
+    db.close();
+  }
 
   console.log(`Publishing "${post.topic || postId}"...`);
 
@@ -147,18 +155,19 @@ async function publishNow(postId) {
   // Get permalink
   const { permalink } = await igGet(`/${instagramPostId}`, { fields: 'permalink' }, token);
 
-  // Update DB
-  db.prepare(`
-    UPDATE scheduled_posts SET status = 'published', instagram_container_id = ? WHERE id = ?
-  `).run(containerId, postId);
-
-  db.prepare(`
-    INSERT OR REPLACE INTO published_posts
-      (id, topic, template, instagram_post_id, instagram_permalink, published_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
-  `).run(postId, post.topic, post.template, instagramPostId, permalink);
-
-  db.close();
+  // Update DB — success path
+  {
+    const db = new Database(path.resolve(DB_PATH));
+    db.prepare(`
+      UPDATE scheduled_posts SET status = 'published', instagram_container_id = ? WHERE id = ?
+    `).run(containerId, postId);
+    db.prepare(`
+      INSERT OR REPLACE INTO published_posts
+        (id, topic, template, instagram_post_id, instagram_permalink, published_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(postId, post.topic, post.template, instagramPostId, permalink);
+    db.close();
+  }
 
   console.log(`  ✓ Published: ${permalink}`);
   return { instagram_post_id: instagramPostId, permalink, status: 'published' };
