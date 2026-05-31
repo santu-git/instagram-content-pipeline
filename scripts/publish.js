@@ -147,15 +147,13 @@ async function publishNow(postId) {
   // Steps A + B
   const containerId = await buildCarouselContainer(post, token, accountId);
 
-  // Step C: publish
+  // Step C: publish — once this succeeds the post is live on Instagram
   console.log('  Publishing...');
   const published = await igPost(`/${accountId}/media_publish`, { creation_id: containerId }, token);
   const instagramPostId = published.id;
 
-  // Get permalink
-  const { permalink } = await igGet(`/${instagramPostId}`, { fields: 'permalink' }, token);
-
-  // Update DB — success path
+  // Write 'published' to DB immediately after media_publish — before fetching the permalink.
+  // If the permalink fetch fails (e.g. rate limit) the post is already marked correctly in DB.
   {
     const db = new Database(path.resolve(DB_PATH));
     db.prepare(`
@@ -163,13 +161,24 @@ async function publishNow(postId) {
     `).run(containerId, postId);
     db.prepare(`
       INSERT OR REPLACE INTO published_posts
-        (id, topic, template, instagram_post_id, instagram_permalink, published_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `).run(postId, post.topic, post.template, instagramPostId, permalink);
+        (id, topic, template, instagram_post_id, published_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(postId, post.topic, post.template, instagramPostId);
     db.close();
   }
 
-  console.log(`  ✓ Published: ${permalink}`);
+  // Fetch permalink as best-effort — failure does not affect published status
+  let permalink = null;
+  try {
+    ({ permalink } = await igGet(`/${instagramPostId}`, { fields: 'permalink' }, token));
+    const db = new Database(path.resolve(DB_PATH));
+    db.prepare(`UPDATE published_posts SET instagram_permalink = ? WHERE id = ?`).run(permalink, postId);
+    db.close();
+  } catch (err) {
+    console.warn(`  ⚠ Could not fetch permalink (post is published): ${err.message}`);
+  }
+
+  console.log(`  ✓ Published: ${permalink || instagramPostId}`);
   return { instagram_post_id: instagramPostId, permalink, status: 'published' };
 }
 
