@@ -129,8 +129,9 @@ Claude runs via Claude Desktop subscription through MCP protocol.
 | Preview Server | Express.js |
 | MCP Server | @modelcontextprotocol/sdk |
 | Storage | DigitalOcean Spaces via AWS SDK (S3-compatible) |
-| Scheduler | Custom setInterval (60s) + startup sweep in preview-server.js |
+| Scheduler | Custom setInterval (60s) + startup sweep + daily stats refresh in preview-server.js |
 | Publishing | Instagram Graph API |
+| Analytics Charts | Chart.js (CDN) |
 | Containerisation | Docker + docker-compose |
 | AI Brain | Claude Desktop for Mac via MCP |
 
@@ -168,6 +169,8 @@ instagram-content-pipeline/
 │   ├── generate.js
 │   ├── preview-server.js
 │   ├── publish.js
+│   ├── ig-api.js       ← shared igGet / igPost helpers
+│   ├── stats.js        ← Instagram stats fetching + weekly aggregation
 │   └── init-db.js
 ├── /mcp
 │   ├── server.js
@@ -175,13 +178,14 @@ instagram-content-pipeline/
 │       ├── generate.js
 │       ├── preview.js
 │       ├── publish.js
-│       ├── stats.js
+│       ├── stats.js    ← get_post_stats, get_weekly_summary
 │       └── queue.js
 ├── /preview-ui
 │   ├── index.html      ← post preview + approve form
-│   ├── list.html       ← posts dashboard
+│   ├── list.html       ← posts dashboard (inline stats on published cards)
 │   ├── review.html     ← draft editor — JSON editor + live slide preview
 │   ├── calendar.html   ← month-view content calendar
+│   ├── analytics.html  ← analytics page — weekly trend chart + sortable stats table
 │   └── styles.css
 ├── /data
 │   └── instagram-pipeline.db
@@ -204,6 +208,7 @@ CREATE TABLE scheduled_posts (
   id TEXT PRIMARY KEY,
   topic TEXT,
   template TEXT,
+  category TEXT,                  -- content category for analytics grouping
   instagram_container_id TEXT,
   scheduled_time DATETIME,
   status TEXT,
@@ -219,14 +224,16 @@ CREATE TABLE published_posts (
   id TEXT PRIMARY KEY,
   topic TEXT,
   template TEXT,
+  category TEXT,
   instagram_post_id TEXT,
   instagram_permalink TEXT,
   published_at DATETIME,
   likes INTEGER,
   comments INTEGER,
   saves INTEGER,
+  shares INTEGER,
   reach INTEGER,
-  impressions INTEGER,
+  impressions INTEGER,            -- stores `views` metric (impressions deprecated in API v22+)
   stats_fetched_at DATETIME
 );
 ```
@@ -242,8 +249,8 @@ CREATE TABLE published_posts (
 | schedule_post | id, iso_datetime | publish_time, status |
 | list_scheduled_posts | — | array of scheduled posts |
 | cancel_scheduled_post | id | id, status |
-| get_post_stats | post_id | likes, comments, saves, reach, impressions |
-| get_weekly_summary | — | posts, total_reach, top_post, engagement_rate |
+| get_post_stats | post_id | topic, template, category, slide_count, has_code_blocks, likes, comments, saves, shares, reach, views, save_rate, engagement_rate, stats_fetched_at |
+| get_weekly_summary | days? | posts_count, total_reach, total_likes, total_saves, avg_engagement_rate, avg_save_rate, top_post, posts[] |
 
 ### draft_carousel
 
@@ -318,6 +325,7 @@ draft → uploaded → approved → scheduled → published
   "id": "post-uuid-here",
   "template": "educator",
   "topic": "What is an API?",
+  "category": "Web Concepts",
   "tag": "Beginner Guide",
   "format": "post",
   "slides": [
@@ -378,6 +386,7 @@ Future elements (extensible): `{ "kind": "icon", ... }`, `{ "kind": "image", ...
 | Field | Rule |
 |---|---|
 | template | educator, challenger, or quicklist |
+| category | free text — content category for analytics, e.g. "Python Basics", "Web Concepts", "Career", "Tools" |
 | format | post or story |
 | type | cover, content, or cta |
 | number | "01" to "09" as string not integer |
@@ -449,9 +458,36 @@ Indentation in `lines` uses regular spaces. Elements render top-to-bottom in the
 
 ### Phase 6 — Analytics
 
-- [ ] get_post_stats tool
-- [ ] get_weekly_summary tool
-- [ ] Performance display on preview UI
+- [x] `scripts/ig-api.js` — shared igGet / igPost extracted from publish.js
+- [x] `scripts/stats.js` — fetchAndStoreStats(), getWeeklySummary(), getWeeklyTrends()
+- [x] get_post_stats MCP tool — fetches live stats from Instagram, returns enriched object with topic/template/category/slide metadata + engagement rates
+- [x] get_weekly_summary MCP tool — aggregates last N days, returns per-post array + totals for Claude to analyse
+- [x] Daily auto-refresh — preview-server runs stats sweep 2 min after startup then every 24h for all posts in last 30 days
+- [x] category field — added to JSON schema, scheduled_posts, published_posts; passed through draft/generate/publish flows
+- [x] Analytics page at /analytics — weekly trend line chart (Chart.js), sortable matrix table with sticky first 3 columns
+- [x] Inline stats on published cards in list.html — likes, comments, saves, reach with ↻ refresh button
+- [x] Instagram API v22+ fix — impressions metric deprecated, replaced with views + added shares
+
+---
+
+## Instagram API — Analytics Notes
+
+### Metrics (API v22+)
+
+| Metric | Endpoint | Available |
+|---|---|---|
+| `likes`, `comments` | `/{media-id}/insights` | Immediately after publish |
+| `reach`, `saves`, `shares`, `views` | `/{media-id}/insights` | ~24h after publish |
+| `impressions` | ~~deprecated in v22+~~ | Use `views` instead |
+| `profile_views`, `website_clicks` | `/{account-id}/insights?metric_type=total_value` | Period total only, max 30-day window |
+
+### Stats Sync Delay
+
+Instagram's Insights API lags **24–48 hours** behind the native app. Numbers shown in portal will be lower than Instagram app until the API catches up. The daily background refresh updates all posts automatically.
+
+### Stats Architecture
+
+Claude is the analysis layer — MCP tools return raw metrics + post metadata (topic, template, category, slide_count, has_code_blocks) so Claude can spot patterns and recommend future content without any code-based analysis logic.
 
 ---
 
