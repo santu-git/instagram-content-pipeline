@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analytics — Instagram Content Pipeline</title>
   <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     body { overflow: auto; background: #F7F6F2; }
 
@@ -69,9 +70,13 @@
     /* Summary strip */
     .summary-strip {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
       margin-bottom: 32px;
+    }
+
+    @media (min-width: 900px) {
+      .summary-strip { grid-template-columns: repeat(6, 1fr); }
     }
 
     .summary-card {
@@ -228,6 +233,119 @@
       vertical-align: middle;
     }
 
+    /* Trends card */
+    .trends-card {
+      background: #FFFFFF;
+      border: 1px solid #EBEBEB;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+
+    .trends-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+    }
+
+    .trends-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1C1C1E;
+      letter-spacing: -0.01em;
+    }
+
+    .trends-sub {
+      font-size: 12px;
+      color: #8E8E93;
+      margin-top: 3px;
+    }
+
+    .weeks-selector {
+      display: flex;
+      gap: 4px;
+    }
+
+    .weeks-selector button {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #EBEBEB;
+      background: #F7F6F2;
+      color: #8E8E93;
+      cursor: pointer;
+    }
+
+    .weeks-selector button.active {
+      background: #1C1C1E;
+      color: #FFFFFF;
+      border-color: #1C1C1E;
+    }
+
+    .metric-toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .metric-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1.5px solid #EBEBEB;
+      background: #F7F6F2;
+      cursor: pointer;
+      transition: all 0.15s;
+      min-width: 90px;
+    }
+
+    .metric-chip.active {
+      background: #FFF;
+      border-color: var(--chip-color, #D4860A);
+      box-shadow: 0 0 0 1px var(--chip-color, #D4860A);
+    }
+
+    .chip-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #8E8E93;
+    }
+
+    .metric-chip.active .chip-label {
+      color: var(--chip-color, #D4860A);
+    }
+
+    .chip-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1C1C1E;
+      margin-top: 2px;
+      font-family: ui-monospace, 'SF Mono', monospace;
+    }
+
+    .chip-change {
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 1px;
+    }
+
+    .chip-change.up   { color: #34C759; }
+    .chip-change.down { color: #FF3B30; }
+    .chip-change.flat { color: #8E8E93; }
+
+    .chart-container {
+      position: relative;
+      height: 260px;
+    }
+
     /* Pending stats */
     .pending { color: #C7C7CC; font-size: 11px; font-style: italic; }
 
@@ -264,6 +382,26 @@
       <div class="summary-card"><div class="label">Total Reach</div><div class="value" id="s-reach">—</div><div class="sub">unique accounts</div></div>
       <div class="summary-card"><div class="label">Avg Save Rate</div><div class="value" id="s-save">—</div><div class="sub">saves ÷ reach</div></div>
       <div class="summary-card"><div class="label">Avg Engagement</div><div class="value" id="s-eng">—</div><div class="sub">likes + comments + saves ÷ reach</div></div>
+      <div class="summary-card"><div class="label">Profile Views</div><div class="value" id="s-pviews">—</div><div class="sub" id="s-pviews-sub">last 28 days</div></div>
+      <div class="summary-card"><div class="label">Website Clicks</div><div class="value" id="s-wclicks">—</div><div class="sub" id="s-wclicks-sub">last 28 days</div></div>
+    </div>
+
+    <div class="trends-card">
+      <div class="trends-header">
+        <div>
+          <div class="trends-title">Weekly Trend</div>
+          <div class="trends-sub" id="trends-sub">Loading…</div>
+        </div>
+        <div class="weeks-selector">
+          <button id="btn-4w" onclick="setWeeks(4)">4W</button>
+          <button id="btn-8w" onclick="setWeeks(8)" class="active">8W</button>
+          <button id="btn-12w" onclick="setWeeks(12)">12W</button>
+        </div>
+      </div>
+      <div class="metric-toggles" id="metric-toggles"></div>
+      <div class="chart-container">
+        <canvas id="trend-chart"></canvas>
+      </div>
     </div>
 
     <div class="table-wrap">
@@ -507,6 +645,181 @@
     }
 
     load();
+
+    // ── Weekly Trend Chart ───────────────────────────────────────────────────
+
+    const METRICS = [
+      { key: 'total_reach',        label: 'Reach',     color: '#D4860A', axis: 'y',  fmt: v => v != null ? v.toLocaleString('en-IN') : null },
+      { key: 'total_saves',        label: 'Saves',     color: '#4A5240', axis: 'y',  fmt: v => v != null ? v.toLocaleString('en-IN') : null },
+      { key: 'total_shares',       label: 'Shares',    color: '#5856D6', axis: 'y',  fmt: v => v != null ? v.toLocaleString('en-IN') : null },
+      { key: 'avg_save_rate',      label: 'Save Rate', color: '#34C759', axis: 'y1', fmt: v => v != null ? v.toFixed(1) + '%' : null },
+      { key: 'avg_engagement_rate',label: 'Eng Rate',  color: '#007AFF', axis: 'y1', fmt: v => v != null ? v.toFixed(1) + '%' : null },
+      { key: 'posts_count',        label: 'Posts',     color: '#FF9500', axis: 'y',  fmt: v => v != null ? String(v) : null },
+    ];
+
+    let activeMetrics = new Set(['total_reach', 'avg_save_rate']);
+    let trendChart = null;
+    let trendData = [];
+    let currentWeeks = 8;
+
+    function fmtWeekLabel(weekStart) {
+      const d = new Date(weekStart + 'T00:00:00Z');
+      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    }
+
+    function wowChange(data, key) {
+      if (data.length < 2) return null;
+      const last = data[data.length - 1][key];
+      const prev = data[data.length - 2][key];
+      if (last == null || prev == null || prev === 0) return null;
+      return ((last - prev) / Math.abs(prev) * 100).toFixed(0);
+    }
+
+    function buildChips(data) {
+      const container = document.getElementById('metric-toggles');
+      container.innerHTML = '';
+      METRICS.forEach(m => {
+        const latest = data.length ? data[data.length - 1][m.key] : null;
+        const change = wowChange(data, m.key);
+        const isActive = activeMetrics.has(m.key);
+
+        const chip = document.createElement('div');
+        chip.className = 'metric-chip' + (isActive ? ' active' : '');
+        chip.style.setProperty('--chip-color', m.color);
+
+        let changeHtml = '';
+        if (change !== null) {
+          const cls = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+          changeHtml = `<div class="chip-change ${cls}">${change > 0 ? '↑' : change < 0 ? '↓' : '→'} ${Math.abs(change)}% WoW</div>`;
+        }
+
+        chip.innerHTML = `
+          <div class="chip-label">${m.label}</div>
+          <div class="chip-value">${m.fmt(latest) ?? '—'}</div>
+          ${changeHtml}
+        `;
+
+        chip.addEventListener('click', () => {
+          if (activeMetrics.has(m.key)) {
+            if (activeMetrics.size > 1) activeMetrics.delete(m.key);
+          } else {
+            activeMetrics.add(m.key);
+          }
+          buildChips(data);
+          renderChart(data);
+        });
+
+        container.appendChild(chip);
+      });
+    }
+
+    function renderChart(data) {
+      const labels = data.map(d => fmtWeekLabel(d.week_start));
+
+      const datasets = METRICS.filter(m => activeMetrics.has(m.key)).map(m => ({
+        label: m.label,
+        data: data.map(d => d[m.key] ?? null),
+        borderColor: m.color,
+        backgroundColor: m.color + '18',
+        yAxisID: m.axis,
+        tension: 0.35,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2.5,
+        fill: false,
+        spanGaps: true,
+      }));
+
+      const hasY1 = METRICS.some(m => activeMetrics.has(m.key) && m.axis === 'y1');
+
+      if (trendChart) trendChart.destroy();
+
+      trendChart = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1C1C1E',
+              titleColor: '#F7F6F2',
+              bodyColor: '#C7C7CC',
+              padding: 12,
+              callbacks: {
+                label: ctx => {
+                  const m = METRICS.find(m => m.label === ctx.dataset.label);
+                  const val = m ? m.fmt(ctx.parsed.y) : ctx.parsed.y;
+                  return ` ${ctx.dataset.label}: ${val ?? '—'}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { color: '#F2F2F7' },
+              ticks: { color: '#8E8E93', font: { size: 11 } },
+            },
+            y: {
+              position: 'left',
+              grid: { color: '#F2F2F7' },
+              ticks: { color: '#8E8E93', font: { size: 11 } },
+              beginAtZero: true,
+            },
+            y1: {
+              display: hasY1,
+              position: 'right',
+              grid: { drawOnChartArea: false },
+              ticks: {
+                color: '#8E8E93',
+                font: { size: 11 },
+                callback: v => v.toFixed(1) + '%',
+              },
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    }
+
+    function loadTrends(weeks) {
+      document.getElementById('trends-sub').textContent = 'Loading…';
+      fetch(`/api/weekly-trends?weeks=${weeks}`)
+        .then(r => r.json())
+        .then(res => {
+          const data = res.weeks || [];
+          trendData = data;
+
+          const sub = `Last ${weeks} weeks · ${data.length} week${data.length !== 1 ? 's' : ''} of data · click metrics to toggle`;
+          document.getElementById('trends-sub').textContent = sub;
+
+          // Populate account-level totals in summary strip
+          const pv = res.profile_views;
+          const wc = res.website_clicks;
+          document.getElementById('s-pviews').textContent = pv != null ? pv.toLocaleString('en-IN') : '—';
+          document.getElementById('s-wclicks').textContent = wc != null ? wc.toLocaleString('en-IN') : '—';
+          const periodLabel = `last ${res.account_period_days || 28} days`;
+          document.getElementById('s-pviews-sub').textContent = periodLabel;
+          document.getElementById('s-wclicks-sub').textContent = periodLabel;
+
+          buildChips(data);
+          renderChart(data);
+        })
+        .catch(() => {
+          document.getElementById('trends-sub').textContent = 'Could not load trend data.';
+        });
+    }
+
+    function setWeeks(w) {
+      currentWeeks = w;
+      document.querySelectorAll('.weeks-selector button').forEach(b => b.classList.remove('active'));
+      document.getElementById(`btn-${w}w`).classList.add('active');
+      loadTrends(w);
+    }
+
+    loadTrends(8);
   </script>
 </body>
 </html>

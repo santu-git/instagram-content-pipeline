@@ -177,4 +177,88 @@ async function getWeeklySummary(daysBack = 7) {
   };
 }
 
-module.exports = { fetchAndStoreStats, getWeeklySummary };
+// Returns Monday date string (YYYY-MM-DD) for a given Date — used to bin
+// Instagram's daily account-insight values into the same weeks as SQLite.
+function getMondayOfWeek(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diff = day === 0 ? 6 : day - 1;
+  return new Date(d.getTime() - diff * 86400000).toISOString().slice(0, 10);
+}
+
+async function getWeeklyTrends(weeksBack = 8) {
+  const token = INSTAGRAM_ACCESS_TOKEN();
+  const accountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
+  if (!accountId) throw new Error('Missing INSTAGRAM_BUSINESS_ACCOUNT_ID');
+
+  const daysBack = weeksBack * 7;
+
+  // 1. Per-week post aggregates from our DB
+  // SQLite expression: date - (weekday offset) = Monday of that week
+  const db = new Database(path.resolve(DB_PATH));
+  const rows = db.prepare(`
+    SELECT
+      date(datetime(published_at),
+        '-' || ((cast(strftime('%w', datetime(published_at)) as integer) + 6) % 7) || ' days'
+      ) as week_start,
+      COUNT(*) as posts_count,
+      SUM(COALESCE(reach, 0))  as total_reach,
+      SUM(COALESCE(likes, 0))  as total_likes,
+      SUM(COALESCE(saves, 0))  as total_saves,
+      SUM(COALESCE(shares, 0)) as total_shares,
+      ROUND(AVG(CASE WHEN reach > 0
+        THEN CAST((COALESCE(likes,0) + COALESCE(comments,0) + COALESCE(saves,0)) AS FLOAT) / reach * 100
+        ELSE NULL END), 2) as avg_engagement_rate,
+      ROUND(AVG(CASE WHEN reach > 0
+        THEN CAST(COALESCE(saves,0) AS FLOAT) / reach * 100
+        ELSE NULL END), 2) as avg_save_rate
+    FROM published_posts
+    WHERE published_at >= datetime('now', '-' || ? || ' days')
+    GROUP BY week_start
+    ORDER BY week_start ASC
+  `).all(daysBack);
+  db.close();
+
+  // 2. Instagram account-level totals for the period (profile views, website clicks)
+  // API v22+ only supports metric_type=total_value (no daily breakdown) and max 30-day window.
+  // We fetch a single total and attach it to the most recent week as context.
+  const windowDays = Math.min(daysBack, 28); // API hard limit: 30 days
+  const since = Math.floor((Date.now() - windowDays * 24 * 3600 * 1000) / 1000);
+  const until = Math.floor(Date.now() / 1000);
+  let accountTotals = { profile_views: null, website_clicks: null };
+
+  try {
+    const insights = await igGet(`/${accountId}/insights`, {
+      metric: 'profile_views,website_clicks',
+      period: 'day',
+      metric_type: 'total_value',
+      since,
+      until,
+    }, token);
+    for (const m of (insights.data || [])) {
+      if (m.name === 'profile_views')  accountTotals.profile_views  = m.total_value?.value ?? null;
+      if (m.name === 'website_clicks') accountTotals.website_clicks = m.total_value?.value ?? null;
+    }
+  } catch (err) {
+    console.warn(`[trends] Account insights unavailable: ${err.message}`);
+  }
+
+  // 3. Return weekly rows (post-level) + account totals as metadata
+  return {
+    weeks: rows.map(row => ({
+      week_start: row.week_start,
+      posts_count: row.posts_count,
+      total_reach: row.total_reach || 0,
+      total_likes: row.total_likes || 0,
+      total_saves: row.total_saves || 0,
+      total_shares: row.total_shares || 0,
+      avg_engagement_rate: row.avg_engagement_rate,
+      avg_save_rate: row.avg_save_rate,
+    })),
+    account_period_days: windowDays,
+    profile_views: accountTotals.profile_views,
+    website_clicks: accountTotals.website_clicks,
+  };
+}
+
+module.exports = { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends };

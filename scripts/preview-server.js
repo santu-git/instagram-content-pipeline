@@ -6,7 +6,7 @@ const Database = require('better-sqlite3');
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { generatePost } = require('./generate');
 const { publishNow, schedulePost, cancelScheduled } = require('./publish');
-const { fetchAndStoreStats, getWeeklySummary } = require('./stats');
+const { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends } = require('./stats');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -394,6 +394,18 @@ app.get('/api/published-posts', (req, res) => {
   `).all();
   db.close();
   res.json(posts);
+});
+
+// Weekly trend — per-week aggregates + account-level insights
+app.get('/api/weekly-trends', async (req, res) => {
+  const weeks = Math.min(parseInt(req.query.weeks) || 8, 12);
+  try {
+    const trends = await getWeeklyTrends(weeks);
+    res.json(trends);
+  } catch (err) {
+    console.error('Weekly trends failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Aggregated weekly summary
