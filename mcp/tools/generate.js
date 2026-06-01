@@ -13,6 +13,7 @@ const inputSchema = {
       properties: {
         template: { type: 'string', enum: ['educator', 'challenger', 'quicklist'] },
         topic:    { type: 'string' },
+        category: { type: 'string', description: 'Content category for analytics grouping, e.g. "Python Basics", "Web Concepts", "Career", "Tools"' },
         tag:      { type: 'string' },
         handle:   { type: 'string' },
         format:   { type: 'string', enum: ['post', 'story'] },
@@ -29,6 +30,7 @@ JSON schema:
 {
   "template": "educator | challenger | quicklist",
   "topic": "string — the post topic",
+  "category": "string — content category for analytics, e.g. Python Basics | Web Concepts | Career | Tools",
   "tag": "string — tag label shown on cover (uppercase)",
   "handle": "string — Instagram handle without @",
   "format": "post",

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics — Instagram Content Pipeline</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { overflow: auto; background: #F7F6F2; }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 32px 80px;
+    }
+
+    .page-header {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .page-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #1C1C1E;
+      margin-bottom: 6px;
+    }
+
+    .page-header p {
+      font-size: 14px;
+      color: #8E8E93;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+      padding-top: 4px;
+    }
+
+    .nav-link {
+      font-size: 13px;
+      font-weight: 500;
+      color: #D4860A;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .nav-link:hover { color: #B8730A; }
+
+    .refresh-all-btn {
+      font-size: 13px;
+      font-weight: 500;
+      color: #FFFFFF;
+      background: #1C1C1E;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .refresh-all-btn:hover { background: #3A3A3C; }
+    .refresh-all-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* Summary strip */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .summary-card {
+      background: #FFFFFF;
+      border: 1px solid #EBEBEB;
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .summary-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #8E8E93;
+      margin-bottom: 6px;
+    }
+
+    .summary-card .value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1C1C1E;
+      letter-spacing: -0.02em;
+    }
+
+    .summary-card .sub {
+      font-size: 12px;
+      color: #8E8E93;
+      margin-top: 2px;
+    }
+
+    /* Table wrapper */
+    .table-wrap {
+      background: #FFFFFF;
+      border: 1px solid #EBEBEB;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: #F7F6F2;
+      border-bottom: 1px solid #EBEBEB;
+    }
+
+    th {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #8E8E93;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+
+    th:hover { color: #1C1C1E; }
+
+    th.sorted { color: #D4860A; }
+
+    th .sort-arrow {
+      margin-left: 4px;
+      opacity: 0.5;
+      font-size: 10px;
+    }
+
+    th.sorted .sort-arrow { opacity: 1; }
+
+    th.num { text-align: right; }
+
+    td {
+      padding: 13px 14px;
+      color: #1C1C1E;
+      border-bottom: 1px solid #F2F2F7;
+      vertical-align: middle;
+    }
+
+    td.num {
+      text-align: right;
+      font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+    }
+
+    td.null-val {
+      color: #C7C7CC;
+      font-family: ui-monospace, monospace;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: #FAFAF8; }
+
+    /* Topic cell */
+    .topic-cell { max-width: 220px; }
+    .topic-name {
+      font-weight: 600;
+      color: #1C1C1E;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+    .topic-link { text-decoration: none; color: inherit; }
+    .topic-link:hover .topic-name { color: #D4860A; }
+
+    .template-bar {
+      display: inline-block;
+      width: 3px;
+      height: 14px;
+      border-radius: 2px;
+      margin-right: 8px;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .template-bar[data-t="educator"]   { background: #1C1C1E; }
+    .template-bar[data-t="challenger"] { background: #4A5240; }
+    .template-bar[data-t="quicklist"]  { background: #D4860A; }
+
+    .category-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 500;
+      color: #8E8E93;
+      background: #F2F2F7;
+      border-radius: 4px;
+      padding: 2px 6px;
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+
+    /* Rate cells — colour coded */
+    .rate-cell { font-weight: 600; }
+    .rate-high  { color: #34C759; }
+    .rate-mid   { color: #FF9500; }
+    .rate-low   { color: #FF3B30; }
+
+    /* Top post highlight */
+    .top-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #D4860A;
+      background: #FFF3DC;
+      border-radius: 4px;
+      padding: 2px 5px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    /* Pending stats */
+    .pending { color: #C7C7CC; font-size: 11px; font-style: italic; }
+
+    /* Empty / loading */
+    .empty-row td {
+      text-align: center;
+      padding: 60px 0;
+      color: #8E8E93;
+    }
+
+    .last-refresh {
+      font-size: 12px;
+      color: #C7C7CC;
+      margin-top: 12px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1>Analytics</h1>
+        <p>Performance data for published posts, fetched from Instagram.</p>
+      </div>
+      <div class="header-actions">
+        <a href="/" class="nav-link">← Posts</a>
+        <button class="refresh-all-btn" id="refresh-all-btn" onclick="refreshAll()">↻ Refresh All Stats</button>
+      </div>
+    </div>
+
+    <div class="summary-strip" id="summary-strip">
+      <div class="summary-card"><div class="label">Posts</div><div class="value" id="s-count">—</div><div class="sub">published</div></div>
+      <div class="summary-card"><div class="label">Total Reach</div><div class="value" id="s-reach">—</div><div class="sub">unique accounts</div></div>
+      <div class="summary-card"><div class="label">Avg Save Rate</div><div class="value" id="s-save">—</div><div class="sub">saves ÷ reach</div></div>
+      <div class="summary-card"><div class="label">Avg Engagement</div><div class="value" id="s-eng">—</div><div class="sub">likes + comments + saves ÷ reach</div></div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="analytics-table">
+        <thead>
+          <tr>
+            <th data-col="topic">Topic <span class="sort-arrow">↕</span></th>
+            <th data-col="published_at">Published <span class="sort-arrow">↕</span></th>
+            <th data-col="slide_count" class="num">Slides <span class="sort-arrow">↕</span></th>
+            <th data-col="likes"        class="num">Likes <span class="sort-arrow">↕</span></th>
+            <th data-col="comments"     class="num">Comments <span class="sort-arrow">↕</span></th>
+            <th data-col="saves"        class="num">Saves <span class="sort-arrow">↕</span></th>
+            <th data-col="reach"        class="num">Reach <span class="sort-arrow">↕</span></th>
+            <th data-col="impressions"  class="num">Impressions <span class="sort-arrow">↕</span></th>
+            <th data-col="save_rate"    class="num">Save % <span class="sort-arrow">↕</span></th>
+            <th data-col="eng_rate"     class="num">Eng % <span class="sort-arrow">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr class="empty-row"><td colspan="10">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="last-refresh" id="last-refresh"></div>
+  </div>
+
+  <script>
+    let allPosts = [];
+    let sortCol = 'published_at';
+    let sortDir = -1; // -1 = desc, 1 = asc
+    let topReachId = null;
+
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+    function fmtDateIST(str) {
+      if (!str) return '—';
+      const d = new Date(str.replace(' ', 'T'));
+      const ist = new Date(d.getTime() + IST_OFFSET_MS);
+      return ist.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+           + ' · ' + ist.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    }
+
+    function fmtNum(n) {
+      if (n == null) return null;
+      return n.toLocaleString('en-IN');
+    }
+
+    function fmtRate(n) {
+      if (n == null) return null;
+      return n.toFixed(1) + '%';
+    }
+
+    function deriveSlideCount(slidesJson) {
+      try {
+        const c = JSON.parse(slidesJson || '{}');
+        return (c.slides || []).length || null;
+      } catch { return null; }
+    }
+
+    function computeRates(p) {
+      const reach = p.reach;
+      if (!reach) return { save_rate: null, eng_rate: null };
+      const save_rate = parseFloat(((p.saves || 0) / reach * 100).toFixed(1));
+      const eng_rate  = parseFloat((((p.likes || 0) + (p.comments || 0) + (p.saves || 0)) / reach * 100).toFixed(1));
+      return { save_rate, eng_rate };
+    }
+
+    function rateClass(rate) {
+      if (rate == null) return '';
+      if (rate >= 5) return 'rate-high';
+      if (rate >= 2) return 'rate-mid';
+      return 'rate-low';
+    }
+
+    function cell(val, cls = '') {
+      if (val == null) return `<td class="num null-val ${cls}">—</td>`;
+      return `<td class="num ${cls}">${val}</td>`;
+    }
+
+    function rateCell(rate) {
+      if (rate == null) return `<td class="num null-val pending">pending</td>`;
+      return `<td class="num rate-cell ${rateClass(rate)}">${fmtRate(rate)}</td>`;
+    }
+
+    function enrichPosts(raw) {
+      return raw.map(p => {
+        const slide_count = deriveSlideCount(p.slides_json);
+        const { save_rate, eng_rate } = computeRates(p);
+        const topic = p.topic || p.sp_topic || p.id;
+        const template = p.template || p.sp_template;
+        const category = p.category || p.sp_category;
+        return { ...p, slide_count, save_rate, eng_rate, topic, template, category };
+      });
+    }
+
+    function buildSummary(posts) {
+      const withReach = posts.filter(p => p.reach);
+      const totalReach = withReach.reduce((s, p) => s + p.reach, 0);
+      const avgSave = withReach.length
+        ? (withReach.reduce((s, p) => s + (p.save_rate || 0), 0) / withReach.length).toFixed(1) + '%'
+        : '—';
+      const avgEng = withReach.length
+        ? (withReach.reduce((s, p) => s + (p.eng_rate || 0), 0) / withReach.length).toFixed(1) + '%'
+        : '—';
+
+      document.getElementById('s-count').textContent = posts.length;
+      document.getElementById('s-reach').textContent = totalReach ? totalReach.toLocaleString('en-IN') : '—';
+      document.getElementById('s-save').textContent  = avgSave;
+      document.getElementById('s-eng').textContent   = avgEng;
+
+      topReachId = withReach.length
+        ? withReach.reduce((best, p) => p.reach > best.reach ? p : best).id
+        : null;
+    }
+
+    function sortedPosts() {
+      return [...allPosts].sort((a, b) => {
+        const av = a[sortCol];
+        const bv = b[sortCol];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+        return sortDir * (av - bv);
+      });
+    }
+
+    function renderTable() {
+      const posts = sortedPosts();
+      const tbody = document.getElementById('table-body');
+
+      if (!posts.length) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No published posts yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = posts.map(p => {
+        const isTop = p.id === topReachId;
+        const link  = p.instagram_permalink ? `href="${p.instagram_permalink}" target="_blank"` : '';
+        const topBadge = isTop ? '<span class="top-badge">Top</span>' : '';
+
+        return `<tr>
+          <td class="topic-cell">
+            <div style="display:flex;align-items:center">
+              <span class="template-bar" data-t="${p.template || ''}"></span>
+              <div>
+                <a class="topic-link" ${link}>
+                  <div class="topic-name" title="${p.topic}">${p.topic}${topBadge}</div>
+                </a>
+                ${p.category ? `<span class="category-tag">${p.category}</span>` : ''}
+              </div>
+            </div>
+          </td>
+          <td style="white-space:nowrap;color:#8E8E93;font-size:12px">${fmtDateIST(p.published_at)}</td>
+          ${cell(p.slide_count)}
+          ${cell(fmtNum(p.likes))}
+          ${cell(fmtNum(p.comments))}
+          ${cell(fmtNum(p.saves))}
+          ${cell(fmtNum(p.reach))}
+          ${cell(fmtNum(p.impressions))}
+          ${rateCell(p.save_rate)}
+          ${rateCell(p.eng_rate)}
+        </tr>`;
+      }).join('');
+    }
+
+    function updateSortHeaders() {
+      document.querySelectorAll('th[data-col]').forEach(th => {
+        const col = th.dataset.col;
+        th.classList.toggle('sorted', col === sortCol);
+        const arrow = th.querySelector('.sort-arrow');
+        if (col === sortCol) {
+          arrow.textContent = sortDir === -1 ? '↓' : '↑';
+        } else {
+          arrow.textContent = '↕';
+        }
+      });
+    }
+
+    document.querySelectorAll('th[data-col]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.col;
+        if (sortCol === col) {
+          sortDir *= -1;
+        } else {
+          sortCol = col;
+          sortDir = col === 'topic' || col === 'published_at' ? 1 : -1;
+        }
+        updateSortHeaders();
+        renderTable();
+      });
+    });
+
+    function load() {
+      fetch('/api/published-posts')
+        .then(r => r.json())
+        .then(raw => {
+          allPosts = enrichPosts(raw);
+          buildSummary(allPosts);
+          updateSortHeaders();
+          renderTable();
+          const fetched = allPosts.filter(p => p.stats_fetched_at);
+          if (fetched.length) {
+            const latest = fetched.map(p => p.stats_fetched_at).sort().at(-1);
+            document.getElementById('last-refresh').textContent =
+              'Stats last fetched: ' + fmtDateIST(latest);
+          }
+        })
+        .catch(() => {
+          document.getElementById('table-body').innerHTML =
+            '<tr class="empty-row"><td colspan="10">Could not load data. Is the server running?</td></tr>';
+        });
+    }
+
+    async function refreshAll() {
+      const btn = document.getElementById('refresh-all-btn');
+      btn.disabled = true;
+      btn.textContent = 'Refreshing…';
+
+      try {
+        const res = await fetch('/api/published-posts');
+        const posts = await res.json();
+
+        for (const p of posts) {
+          btn.textContent = `Refreshing ${posts.indexOf(p) + 1}/${posts.length}…`;
+          try {
+            await fetch(`/api/stats/${p.id}`);
+          } catch {}
+        }
+      } catch {}
+
+      btn.textContent = '↻ Refresh All Stats';
+      btn.disabled = false;
+      load();
+    }
+
+    load();
+  </script>
+</body>
+</html>

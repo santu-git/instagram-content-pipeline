@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { generatePost } = require('./generate');
 const { publishNow, schedulePost, cancelScheduled } = require('./publish');
+const { fetchAndStoreStats, getWeeklySummary } = require('./stats');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -60,6 +61,8 @@ function initDb() {
     );
   `);
   try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN slides_json TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN category TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN category TEXT`); } catch {}
   db.close();
 }
 
@@ -127,10 +130,15 @@ app.get('/', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'list.html'));
 });
 
-// API — all posts ordered newest first
+// API — all posts ordered newest first, with stats for published ones
 app.get('/api/posts', (req, res) => {
   const db = getDb();
-  const posts = db.prepare('SELECT * FROM scheduled_posts ORDER BY created_at DESC').all();
+  const posts = db.prepare(`
+    SELECT sp.*, pp.likes, pp.comments, pp.saves, pp.reach, pp.impressions, pp.stats_fetched_at
+    FROM scheduled_posts sp
+    LEFT JOIN published_posts pp ON pp.id = sp.id
+    ORDER BY sp.created_at DESC
+  `).all();
   db.close();
   res.json(posts);
 });
@@ -209,9 +217,9 @@ app.post('/api/draft', (req, res) => {
   const db = getDb();
   db.prepare(`
     INSERT OR REPLACE INTO scheduled_posts
-      (id, topic, template, status, slides_json, created_at)
-    VALUES (?, ?, ?, 'draft', ?, datetime('now'))
-  `).run(carousel.id, carousel.topic || null, carousel.template, JSON.stringify(carousel));
+      (id, topic, template, category, status, slides_json, created_at)
+    VALUES (?, ?, ?, ?, 'draft', ?, datetime('now'))
+  `).run(carousel.id, carousel.topic || null, carousel.template, carousel.category || null, JSON.stringify(carousel));
   db.close();
 
   res.json({
@@ -363,6 +371,42 @@ app.post('/api/reject/:id', (req, res) => {
   res.json({ id: req.params.id, status: 'rejected' });
 });
 
+// Fetch fresh stats from Instagram for a published post
+app.get('/api/stats/:id', async (req, res) => {
+  try {
+    const stats = await fetchAndStoreStats(req.params.id);
+    res.json(stats);
+  } catch (err) {
+    console.error('Stats fetch failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List all published posts with their stored stats
+app.get('/api/published-posts', (req, res) => {
+  const db = getDb();
+  const posts = db.prepare(`
+    SELECT pp.*, sp.slides_json, sp.topic AS sp_topic, sp.template AS sp_template, sp.category AS sp_category
+    FROM published_posts pp
+    LEFT JOIN scheduled_posts sp ON sp.id = pp.id
+    ORDER BY pp.published_at DESC
+  `).all();
+  db.close();
+  res.json(posts);
+});
+
+// Aggregated weekly summary
+app.get('/api/weekly-summary', async (req, res) => {
+  const days = parseInt(req.query.days) || 7;
+  try {
+    const summary = await getWeeklySummary(days);
+    res.json(summary);
+  } catch (err) {
+    console.error('Weekly summary failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // List all scheduled posts
 app.get('/api/scheduled-posts', (req, res) => {
   const db = getDb();
@@ -383,6 +427,11 @@ app.get('/api/suggest-schedule', (req, res) => {
 // Content calendar page
 app.get('/calendar', (req, res) => {
   res.sendFile(path.resolve('preview-ui', 'calendar.html'));
+});
+
+// Analytics page
+app.get('/analytics', (req, res) => {
+  res.sendFile(path.resolve('preview-ui', 'analytics.html'));
 });
 
 async function publishDuePosts() {
@@ -416,10 +465,38 @@ async function publishDuePosts() {
   db.close();
 }
 
+async function refreshAllStats() {
+  const db = getDb();
+  const posts = db.prepare(`
+    SELECT id FROM published_posts
+    WHERE published_at >= datetime('now', '-30 days')
+  `).all();
+  db.close();
+
+  if (!posts.length) {
+    console.log('[stats] No published posts in last 30 days to refresh.');
+    return;
+  }
+
+  console.log(`[stats] Refreshing stats for ${posts.length} post(s)...`);
+  for (const { id } of posts) {
+    try {
+      await fetchAndStoreStats(id);
+      console.log(`[stats] ✓ ${id}`);
+    } catch (err) {
+      console.warn(`[stats] ✗ ${id}: ${err.message}`);
+    }
+  }
+  console.log('[stats] Done.');
+}
+
 setInterval(publishDuePosts, 60_000);
+setInterval(refreshAllStats, 24 * 60 * 60 * 1000);
 
 app.listen(PORT, async () => {
   initDb();
   console.log(`Preview server running at http://localhost:${PORT}`);
   await publishDuePosts();
+  // Delay stats refresh on startup so it doesn't collide with any publishing in progress
+  setTimeout(refreshAllStats, 2 * 60 * 1000);
 });

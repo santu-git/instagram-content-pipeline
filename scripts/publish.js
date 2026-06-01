@@ -4,8 +4,7 @@ require('dotenv').config();
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const Database = require('better-sqlite3');
 const path = require('path');
-
-const IG_API = 'https://graph.facebook.com/v25.0';
+const { igGet, igPost } = require('./ig-api');
 
 function env() {
   const {
@@ -20,28 +19,6 @@ function env() {
     if (!v) throw new Error(`Missing required env var: ${k}`);
   }
   return { INSTAGRAM_ACCESS_TOKEN, INSTAGRAM_BUSINESS_ACCOUNT_ID, DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_BUCKET, DO_SPACES_CDN_URL, DB_PATH };
-}
-
-// POST helper for Instagram Graph API (form-encoded)
-async function igPost(path, params, token) {
-  const body = new URLSearchParams({ ...params, access_token: token });
-  const res = await fetch(`${IG_API}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(`Instagram API: ${data.error.message} (code ${data.error.code})`);
-  return data;
-}
-
-// GET helper
-async function igGet(path, params, token) {
-  const qs = new URLSearchParams({ ...params, access_token: token }).toString();
-  const res = await fetch(`${IG_API}${path}?${qs}`);
-  const data = await res.json();
-  if (data.error) throw new Error(`Instagram API: ${data.error.message} (code ${data.error.code})`);
-  return data;
 }
 
 // Wait until a container's status_code is FINISHED (polls up to 30s)
@@ -161,9 +138,9 @@ async function publishNow(postId) {
     `).run(containerId, postId);
     db.prepare(`
       INSERT OR REPLACE INTO published_posts
-        (id, topic, template, instagram_post_id, published_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(postId, post.topic, post.template, instagramPostId);
+        (id, topic, template, category, instagram_post_id, published_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(postId, post.topic, post.template, post.category || null, instagramPostId);
     db.close();
   }
 

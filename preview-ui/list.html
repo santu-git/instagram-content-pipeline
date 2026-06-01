@@ -136,6 +136,36 @@
       line-height: 1;
     }
 
+    /* Stats row on published cards */
+    .card-stats {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: #8E8E93;
+      font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+      margin-top: 6px;
+    }
+
+    .card-stats strong {
+      color: #D4860A;
+      font-weight: 600;
+    }
+
+    .refresh-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      color: #C7C7CC;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .refresh-btn:hover { color: #D4860A; }
+    .refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
     /* Empty state */
     .empty {
       text-align: center;
@@ -180,7 +210,10 @@
         <h1>Posts</h1>
         <p>All carousel posts and their current status.</p>
       </div>
-      <a href="/calendar" class="header-nav-link">Calendar →</a>
+      <div style="display:flex;gap:16px;padding-top:6px">
+        <a href="/analytics" class="header-nav-link">Analytics →</a>
+        <a href="/calendar" class="header-nav-link">Calendar →</a>
+      </div>
     </div>
 
     <div id="posts-list" class="posts-list">
@@ -206,6 +239,48 @@
       return `<span class="badge" data-status="${status}">${status}</span>`;
     }
 
+    function fmt(n) { return n != null ? n.toLocaleString() : '—'; }
+
+    function statsHtml(post) {
+      if (post.status !== 'published') return '';
+      if (!post.stats_fetched_at) {
+        return `<div class="card-stats" id="stats-${post.id}"><span style="color:#C7C7CC">No stats yet — click ↻ to fetch</span></div>`;
+      }
+      return `<div class="card-stats" id="stats-${post.id}">
+        <span>♥ <strong>${fmt(post.likes)}</strong></span>
+        <span>💬 <strong>${fmt(post.comments)}</strong></span>
+        <span>🔖 <strong>${fmt(post.saves)}</strong></span>
+        <span>👁 <strong>${fmt(post.reach)}</strong> reach</span>
+        ${post.impressions != null ? `<span>· <strong>${fmt(post.impressions)}</strong> impr.</span>` : ''}
+      </div>`;
+    }
+
+    function refreshStats(postId, btn) {
+      btn.disabled = true;
+      btn.textContent = '…';
+      fetch(`/api/stats/${postId}`)
+        .then(r => r.json())
+        .then(data => {
+          const el = document.getElementById(`stats-${postId}`);
+          if (el) {
+            el.innerHTML = `
+              <span>♥ <strong>${fmt(data.likes)}</strong></span>
+              <span>💬 <strong>${fmt(data.comments)}</strong></span>
+              <span>🔖 <strong>${fmt(data.saves)}</strong></span>
+              <span>👁 <strong>${fmt(data.reach)}</strong> reach</span>
+              ${data.impressions != null ? `<span>· <strong>${fmt(data.impressions)}</strong> impr.</span>` : ''}
+              ${!data.insights_available ? '<span style="color:#C7C7CC">· insights pending</span>' : ''}
+            `;
+          }
+          btn.textContent = '↻';
+          btn.disabled = false;
+        })
+        .catch(() => {
+          btn.textContent = '↻';
+          btn.disabled = false;
+        });
+    }
+
     fetch('/api/posts')
       .then(r => r.json())
       .then(posts => {
@@ -222,6 +297,9 @@
 
         container.innerHTML = '';
         posts.forEach(post => {
+          const wrapper = document.createElement('div');
+          wrapper.style.position = 'relative';
+
           const a = document.createElement('a');
           a.href = post.status === 'draft' ? `/review/${post.id}` : `/preview/${post.id}`;
           a.className = 'post-card';
@@ -239,14 +317,16 @@
                 <span class="sep">·</span>
                 <span>${formatDate(post.created_at) || '—'}</span>
               </div>
+              ${statsHtml(post)}
             </div>
             <div class="card-right">
               ${scheduled ? `<div class="card-scheduled"><strong>Scheduled</strong>${scheduled}</div>` : ''}
               ${statusBadgeHtml(post.status)}
-              <span class="arrow">›</span>
+              ${post.status === 'published' ? `<button class="refresh-btn" title="Refresh stats" onclick="event.preventDefault();event.stopPropagation();refreshStats('${post.id}',this)">↻</button>` : '<span class="arrow">›</span>'}
             </div>`;
 
-          container.appendChild(a);
+          wrapper.appendChild(a);
+          container.appendChild(wrapper);
         });
       })
       .catch(() => {
