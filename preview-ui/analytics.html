@@ -443,7 +443,7 @@
       const normalized = str.replace(' ', 'T');
       const utc = normalized.endsWith('Z') || normalized.includes('+') ? normalized : normalized + 'Z';
       const ist = new Date(new Date(utc).getTime() + IST_OFFSET_MS);
-      return ist.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+      return ist.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
            + ' · ' + ist.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
     }
 
