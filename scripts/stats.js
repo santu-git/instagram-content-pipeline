@@ -50,19 +50,20 @@ async function fetchAndStoreStats(postId) {
 
   const mediaId = row.instagram_post_id;
 
-  // Basic counts — available immediately
-  const media = await igGet(`/${mediaId}`, { fields: 'like_count,comments_count' }, token);
-  const likes = media.like_count ?? null;
-  const comments = media.comments_count ?? null;
-
-  // Insights — available ~24h after publishing; fail gracefully
-  let reach = null, impressions = null, saves = null;
+  // Fetch all metrics from insights in one call (API v22+ — impressions replaced by views)
+  let likes = null, comments = null, saves = null, reach = null, views = null, shares = null;
   try {
-    const insights = await igGet(`/${mediaId}/insights`, { metric: 'impressions,reach,saved' }, token);
+    const insights = await igGet(`/${mediaId}/insights`, {
+      metric: 'reach,saved,shares,likes,comments,views',
+    }, token);
     for (const item of (insights.data || [])) {
-      if (item.name === 'reach')       reach       = item.values?.[0]?.value ?? item.value ?? null;
-      if (item.name === 'impressions') impressions = item.values?.[0]?.value ?? item.value ?? null;
-      if (item.name === 'saved')       saves       = item.values?.[0]?.value ?? item.value ?? null;
+      const val = item.values?.[0]?.value ?? null;
+      if (item.name === 'reach')    reach    = val;
+      if (item.name === 'saved')    saves    = val;
+      if (item.name === 'shares')   shares   = val;
+      if (item.name === 'likes')    likes    = val;
+      if (item.name === 'comments') comments = val;
+      if (item.name === 'views')    views    = val;
     }
   } catch (err) {
     console.warn(`  ⚠ Insights not yet available for ${postId}: ${err.message}`);
@@ -71,9 +72,9 @@ async function fetchAndStoreStats(postId) {
   const db2 = new Database(path.resolve(DB_PATH));
   db2.prepare(`
     UPDATE published_posts
-    SET likes = ?, comments = ?, saves = ?, reach = ?, impressions = ?, stats_fetched_at = datetime('now')
+    SET likes = ?, comments = ?, saves = ?, reach = ?, impressions = ?, shares = ?, stats_fetched_at = datetime('now')
     WHERE id = ?
-  `).run(likes, comments, saves, reach, impressions, postId);
+  `).run(likes, comments, saves, reach, views, shares, postId);
   db2.close();
 
   const { slide_count, has_code_blocks } = deriveSlideInfo(row.slides_json);
@@ -91,7 +92,8 @@ async function fetchAndStoreStats(postId) {
     comments,
     saves,
     reach,
-    impressions,
+    views,
+    shares,
     save_rate,
     engagement_rate,
     stats_fetched_at: new Date().toISOString(),
@@ -124,8 +126,9 @@ async function getWeeklySummary(daysBack = 7) {
       likes: row.likes,
       comments: row.comments,
       saves: row.saves,
+      shares: row.shares,
       reach: row.reach,
-      impressions: row.impressions,
+      views: row.impressions,
       save_rate,
       engagement_rate,
       stats_fetched_at: row.stats_fetched_at,

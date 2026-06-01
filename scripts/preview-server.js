@@ -63,6 +63,7 @@ function initDb() {
   try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN slides_json TEXT`); } catch {}
   try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN category TEXT`); } catch {}
   try { db.exec(`ALTER TABLE published_posts  ADD COLUMN category TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN shares INTEGER`); } catch {}
   db.close();
 }
 

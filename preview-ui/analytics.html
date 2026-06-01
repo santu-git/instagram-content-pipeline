@@ -275,13 +275,14 @@
             <th data-col="topic">Topic <span class="sort-arrow">↕</span></th>
             <th data-col="published_at">Published <span class="sort-arrow">↕</span></th>
             <th data-col="slide_count" class="num">Slides <span class="sort-arrow">↕</span></th>
-            <th data-col="likes"        class="num">Likes <span class="sort-arrow">↕</span></th>
-            <th data-col="comments"     class="num">Comments <span class="sort-arrow">↕</span></th>
-            <th data-col="saves"        class="num">Saves <span class="sort-arrow">↕</span></th>
-            <th data-col="reach"        class="num">Reach <span class="sort-arrow">↕</span></th>
-            <th data-col="impressions"  class="num">Impressions <span class="sort-arrow">↕</span></th>
-            <th data-col="save_rate"    class="num">Save % <span class="sort-arrow">↕</span></th>
-            <th data-col="eng_rate"     class="num">Eng % <span class="sort-arrow">↕</span></th>
+            <th data-col="likes"     class="num">Likes <span class="sort-arrow">↕</span></th>
+            <th data-col="comments"  class="num">Comments <span class="sort-arrow">↕</span></th>
+            <th data-col="saves"     class="num">Saves <span class="sort-arrow">↕</span></th>
+            <th data-col="shares"    class="num">Shares <span class="sort-arrow">↕</span></th>
+            <th data-col="reach"     class="num">Reach <span class="sort-arrow">↕</span></th>
+            <th data-col="views"     class="num">Views <span class="sort-arrow">↕</span></th>
+            <th data-col="save_rate" class="num">Save % <span class="sort-arrow">↕</span></th>
+            <th data-col="eng_rate"  class="num">Eng % <span class="sort-arrow">↕</span></th>
           </tr>
         </thead>
         <tbody id="table-body">
@@ -357,7 +358,9 @@
         const topic = p.topic || p.sp_topic || p.id;
         const template = p.template || p.sp_template;
         const category = p.category || p.sp_category;
-        return { ...p, slide_count, save_rate, eng_rate, topic, template, category };
+        // DB stores views in the `impressions` column; expose as `views`
+        const views = p.views ?? p.impressions ?? null;
+        return { ...p, slide_count, save_rate, eng_rate, topic, template, category, views };
       });
     }
 
@@ -424,8 +427,9 @@
           ${cell(fmtNum(p.likes))}
           ${cell(fmtNum(p.comments))}
           ${cell(fmtNum(p.saves))}
+          ${cell(fmtNum(p.shares))}
           ${cell(fmtNum(p.reach))}
-          ${cell(fmtNum(p.impressions))}
+          ${cell(fmtNum(p.views))}
           ${rateCell(p.save_rate)}
           ${rateCell(p.eng_rate)}
         </tr>`;
