@@ -178,12 +178,12 @@
     tr:hover td { background: #FAFAF8; }
 
     /* Topic cell */
-    .topic-cell { max-width: 260px; }
+    .topic-cell { min-width: 180px; max-width: 240px; }
     .topic-name {
       font-weight: 600;
       color: #1C1C1E;
       line-height: 1.4;
-      word-break: break-word;
+      overflow-wrap: break-word;
     }
     .topic-link { text-decoration: none; color: inherit; }
     .topic-link:hover .topic-name { color: #D4860A; }
@@ -409,7 +409,7 @@
         <thead>
           <tr>
             <th data-col="topic">Topic <span class="sort-arrow">↕</span></th>
-            <th data-col="template">Template <span class="sort-arrow">↕</span></th>
+            <th data-col="template" style="width:100px">Template <span class="sort-arrow">↕</span></th>
             <th data-col="published_at">Published <span class="sort-arrow">↕</span></th>
             <th data-col="slide_count" class="num">Slides <span class="sort-arrow">↕</span></th>
             <th data-col="likes"     class="num">Likes <span class="sort-arrow">↕</span></th>
