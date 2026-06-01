@@ -409,6 +409,7 @@
         <thead>
           <tr>
             <th data-col="topic">Topic <span class="sort-arrow">↕</span></th>
+            <th data-col="template">Template <span class="sort-arrow">↕</span></th>
             <th data-col="published_at">Published <span class="sort-arrow">↕</span></th>
             <th data-col="slide_count" class="num">Slides <span class="sort-arrow">↕</span></th>
             <th data-col="likes"     class="num">Likes <span class="sort-arrow">↕</span></th>
@@ -422,7 +423,7 @@
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr class="empty-row"><td colspan="10">Loading…</td></tr>
+          <tr class="empty-row"><td colspan="11">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -443,7 +444,7 @@
       const normalized = str.replace(' ', 'T');
       const utc = normalized.endsWith('Z') || normalized.includes('+') ? normalized : normalized + 'Z';
       const ist = new Date(new Date(utc).getTime() + IST_OFFSET_MS);
-      return ist.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+      return ist.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
            + ' · ' + ist.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
     }
 
@@ -539,7 +540,7 @@
       const tbody = document.getElementById('table-body');
 
       if (!posts.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No published posts yet.</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="11">No published posts yet.</td></tr>';
         return;
       }
 
@@ -560,6 +561,7 @@
               </div>
             </div>
           </td>
+          <td><span class="badge" data-status="${p.template}">${p.template || '—'}</span></td>
           <td style="white-space:nowrap;color:#8E8E93;font-size:12px">${fmtDateIST(p.published_at)}</td>
           ${cell(p.slide_count)}
           ${cell(fmtNum(p.likes))}
