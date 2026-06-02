@@ -6,7 +6,7 @@ const Database = require('better-sqlite3');
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { generatePost } = require('./generate');
 const { publishNow, schedulePost, cancelScheduled } = require('./publish');
-const { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends } = require('./stats');
+const { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends, fetchPaidStats } = require('./stats');
 const path = require('path');
 
 const PORT = process.env.PORT || 3000;
@@ -64,6 +64,12 @@ function initDb() {
   try { db.exec(`ALTER TABLE scheduled_posts ADD COLUMN category TEXT`); } catch {}
   try { db.exec(`ALTER TABLE published_posts  ADD COLUMN category TEXT`); } catch {}
   try { db.exec(`ALTER TABLE published_posts  ADD COLUMN shares INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN is_boosted INTEGER DEFAULT 0`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN paid_reach INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN paid_impressions INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN paid_clicks INTEGER`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN paid_spend REAL`); } catch {}
+  try { db.exec(`ALTER TABLE published_posts  ADD COLUMN paid_stats_fetched_at DATETIME`); } catch {}
   db.close();
 }
 
@@ -135,7 +141,8 @@ app.get('/', (req, res) => {
 app.get('/api/posts', (req, res) => {
   const db = getDb();
   const posts = db.prepare(`
-    SELECT sp.*, pp.likes, pp.comments, pp.saves, pp.reach, pp.impressions, pp.stats_fetched_at
+    SELECT sp.*, pp.likes, pp.comments, pp.saves, pp.reach, pp.impressions, pp.shares, pp.stats_fetched_at,
+           pp.is_boosted, pp.paid_reach, pp.paid_impressions, pp.paid_clicks, pp.paid_spend, pp.paid_stats_fetched_at
     FROM scheduled_posts sp
     LEFT JOIN published_posts pp ON pp.id = sp.id
     ORDER BY sp.created_at DESC
@@ -381,6 +388,38 @@ app.get('/api/stats/:id', async (req, res) => {
     console.error('Stats fetch failed:', err.message);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Toggle boosted flag on a published post
+app.post('/api/posts/:id/boost', (req, res) => {
+  const db = getDb();
+  db.prepare('UPDATE published_posts SET is_boosted = 1 WHERE id = ?').run(req.params.id);
+  db.close();
+  res.json({ id: req.params.id, is_boosted: true });
+});
+
+// Fetch paid stats from Facebook Ads API for a boosted post (requires ads_read token)
+app.post('/api/posts/:id/paid-stats', async (req, res) => {
+  try {
+    const stats = await fetchPaidStats(req.params.id);
+    res.json(stats);
+  } catch (err) {
+    console.error('Paid stats fetch failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove boosted flag and clear paid stats
+app.post('/api/posts/:id/unboost', (req, res) => {
+  const db = getDb();
+  db.prepare(`
+    UPDATE published_posts
+    SET is_boosted = 0, paid_reach = NULL, paid_impressions = NULL,
+        paid_clicks = NULL, paid_spend = NULL, paid_stats_fetched_at = NULL
+    WHERE id = ?
+  `).run(req.params.id);
+  db.close();
+  res.json({ id: req.params.id, is_boosted: false });
 });
 
 // List all published posts with their stored stats

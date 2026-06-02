@@ -261,4 +261,64 @@ async function getWeeklyTrends(weeksBack = 8) {
   };
 }
 
-module.exports = { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends };
+// Fetch paid (ad) stats for a boosted post from the Facebook Ads API.
+// Marks the post as is_boosted=1 and stores paid_reach/impressions/clicks/spend.
+// Note: reach is summed across ads — approximate when multiple ads target the same audience.
+async function fetchPaidStats(postId) {
+  const token = INSTAGRAM_ACCESS_TOKEN();
+  const adAccountId = process.env.FB_AD_ACCOUNT_ID;
+  if (!adAccountId) throw new Error('FB_AD_ACCOUNT_ID not configured in environment');
+
+  const db = new Database(path.resolve(DB_PATH));
+  const row = db.prepare('SELECT instagram_post_id FROM published_posts WHERE id = ?').get(postId);
+  db.close();
+
+  if (!row) throw new Error(`Post "${postId}" not found in published_posts`);
+  if (!row.instagram_post_id) throw new Error(`Post "${postId}" has no instagram_post_id`);
+
+  const mediaId = row.instagram_post_id;
+
+  const result = await igGet(`/${adAccountId}/insights`, {
+    filtering: JSON.stringify([{
+      field: 'effective_instagram_media_id',
+      operator: 'EQUAL',
+      value: mediaId,
+    }]),
+    fields: 'reach,impressions,clicks,spend',
+    date_preset: 'lifetime',
+    level: 'ad',
+  }, token);
+
+  const ads = result.data || [];
+  if (!ads.length) throw new Error(`No ads found for this post (media ID: ${mediaId}). Make sure the post was boosted via Ads Manager.`);
+
+  let paid_reach = 0, paid_impressions = 0, paid_clicks = 0, paid_spend = 0;
+  for (const ad of ads) {
+    paid_reach       += parseInt(ad.reach       || 0);
+    paid_impressions += parseInt(ad.impressions || 0);
+    paid_clicks      += parseInt(ad.clicks      || 0);
+    paid_spend       += parseFloat(ad.spend     || 0);
+  }
+
+  paid_reach       = paid_reach       || null;
+  paid_impressions = paid_impressions || null;
+  paid_clicks      = paid_clicks      || null;
+  paid_spend       = paid_spend ? parseFloat(paid_spend.toFixed(2)) : null;
+
+  const db2 = new Database(path.resolve(DB_PATH));
+  db2.prepare(`
+    UPDATE published_posts
+    SET is_boosted = 1,
+        paid_reach = ?,
+        paid_impressions = ?,
+        paid_clicks = ?,
+        paid_spend = ?,
+        paid_stats_fetched_at = datetime('now')
+    WHERE id = ?
+  `).run(paid_reach, paid_impressions, paid_clicks, paid_spend, postId);
+  db2.close();
+
+  return { id: postId, is_boosted: true, paid_reach, paid_impressions, paid_clicks, paid_spend, paid_stats_fetched_at: new Date().toISOString() };
+}
+
+module.exports = { fetchAndStoreStats, getWeeklySummary, getWeeklyTrends, fetchPaidStats };

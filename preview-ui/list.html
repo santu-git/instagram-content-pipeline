@@ -166,6 +166,24 @@
     .refresh-btn:hover { color: #D4860A; }
     .refresh-btn:disabled { opacity: 0.4; cursor: default; }
 
+    .boost-btn {
+      background: none;
+      border: 1px solid #EBEBEB;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: #8E8E93;
+      padding: 3px 7px;
+      line-height: 1.4;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .boost-btn:hover { color: #5856D6; border-color: #5856D6; }
+    .boost-btn.is-boosted { color: #5856D6; border-color: #5856D6; background: #F0F0FF; }
+    .boost-btn:disabled { opacity: 0.4; cursor: default; }
+
+
     /* Empty state */
     .empty {
       text-align: center;
@@ -251,7 +269,6 @@
         <span>💬 <strong>${fmt(post.comments)}</strong></span>
         <span>🔖 <strong>${fmt(post.saves)}</strong></span>
         <span>👁 <strong>${fmt(post.reach)}</strong> reach</span>
-        ${post.impressions != null ? `<span>· <strong>${fmt(post.impressions)}</strong> impr.</span>` : ''}
       </div>`;
     }
 
@@ -268,7 +285,6 @@
               <span>💬 <strong>${fmt(data.comments)}</strong></span>
               <span>🔖 <strong>${fmt(data.saves)}</strong></span>
               <span>👁 <strong>${fmt(data.reach)}</strong> reach</span>
-              ${data.impressions != null ? `<span>· <strong>${fmt(data.impressions)}</strong> impr.</span>` : ''}
               ${!data.insights_available ? '<span style="color:#C7C7CC">· insights pending</span>' : ''}
             `;
           }
@@ -279,6 +295,24 @@
           btn.textContent = '↻';
           btn.disabled = false;
         });
+    }
+
+    function boostPost(postId, btn) {
+      const isCurrentlyBoosted = btn.classList.contains('is-boosted');
+      btn.disabled = true;
+      fetch(`/api/posts/${postId}/${isCurrentlyBoosted ? 'unboost' : 'boost'}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(() => {
+          if (isCurrentlyBoosted) {
+            btn.textContent = '⚡ Boost';
+            btn.classList.remove('is-boosted');
+          } else {
+            btn.textContent = '⚡ Boosted';
+            btn.classList.add('is-boosted');
+          }
+          btn.disabled = false;
+        })
+        .catch(() => { btn.disabled = false; });
     }
 
     fetch('/api/posts')
@@ -322,7 +356,10 @@
             <div class="card-right">
               ${scheduled ? `<div class="card-scheduled"><strong>Scheduled</strong>${scheduled}</div>` : ''}
               ${statusBadgeHtml(post.status)}
-              ${post.status === 'published' ? `<button class="refresh-btn" title="Refresh stats" onclick="event.preventDefault();event.stopPropagation();refreshStats('${post.id}',this)">↻</button>` : '<span class="arrow">›</span>'}
+              ${post.status === 'published' ? `
+                <button class="boost-btn ${post.is_boosted ? 'is-boosted' : ''}" title="${post.is_boosted ? 'Refresh paid stats' : 'Mark as boosted & fetch paid stats'}" onclick="event.preventDefault();event.stopPropagation();boostPost('${post.id}',this)">${post.is_boosted ? '⚡ Boosted' : '⚡ Boost'}</button>
+                <button class="refresh-btn" title="Refresh organic stats" onclick="event.preventDefault();event.stopPropagation();refreshStats('${post.id}',this)">↻</button>
+              ` : '<span class="arrow">›</span>'}
             </div>`;
 
           wrapper.appendChild(a);

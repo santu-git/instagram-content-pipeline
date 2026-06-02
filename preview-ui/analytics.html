@@ -379,6 +379,30 @@
     /* Pending stats */
     .pending { color: #C7C7CC; font-size: 11px; font-style: italic; }
 
+    /* Boosted section */
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 32px 0 16px;
+    }
+    .section-heading h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1C1C1E;
+      letter-spacing: -0.01em;
+    }
+    .paid-badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #5856D6;
+      background: #EEEEFF;
+      border-radius: 5px;
+      padding: 3px 8px;
+    }
+
     /* Empty / loading */
     .empty-row td {
       text-align: center;
@@ -458,6 +482,34 @@
       </table>
     </div>
     <div class="last-refresh" id="last-refresh"></div>
+
+    <!-- Boosted Posts section — only shown if at least one post is boosted -->
+    <div id="boosted-section" style="display:none">
+      <div class="section-heading">
+        <h2>Boosted Posts</h2>
+        <span class="paid-badge">Paid</span>
+      </div>
+      <div class="table-wrap">
+        <table id="boosted-table">
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Template</th>
+              <th>Published</th>
+              <th class="num">Paid Reach</th>
+              <th class="num">Views</th>
+              <th class="num">Clicks</th>
+              <th class="num">Spend (₹)</th>
+              <th class="num">₹ / Reach</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="boosted-table-body">
+            <tr class="empty-row"><td colspan="9">No boosted posts yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -641,6 +693,7 @@
           buildSummary(allPosts);
           updateSortHeaders();
           renderTable();
+          buildBoostedSection(allPosts);
           const fetched = allPosts.filter(p => p.stats_fetched_at);
           if (fetched.length) {
             const latest = fetched.map(p => p.stats_fetched_at).sort().at(-1);
@@ -674,6 +727,68 @@
       btn.textContent = '↻ Refresh All Stats';
       btn.disabled = false;
       load();
+    }
+
+    function boostedRowHtml(p) {
+      const link = p.instagram_permalink ? `href="${p.instagram_permalink}" target="_blank"` : '';
+      const hasPaid = p.paid_stats_fetched_at != null;
+      const cpr = (p.paid_spend && p.paid_reach) ? ('₹' + (p.paid_spend / p.paid_reach).toFixed(3)) : null;
+      return `<tr id="boosted-row-${p.id}">
+        <td class="topic-cell">
+          <div style="display:flex;align-items:center">
+            <span class="template-bar" data-t="${p.template || ''}"></span>
+            <div>
+              <a class="topic-link" ${link}><div class="topic-name">${p.topic}</div></a>
+              ${p.category ? `<span class="category-tag">${p.category}</span>` : ''}
+            </div>
+          </div>
+        </td>
+        <td><span class="badge" data-status="${p.template}">${p.template || '—'}</span></td>
+        <td style="white-space:nowrap;color:#8E8E93;font-size:12px">${fmtDateIST(p.published_at)}</td>
+        ${hasPaid ? cell(fmtNum(p.paid_reach)) : '<td class="num null-val pending">—</td>'}
+        ${hasPaid ? cell(fmtNum(p.paid_impressions)) : '<td class="num null-val pending">—</td>'}
+        ${hasPaid ? cell(fmtNum(p.paid_clicks)) : '<td class="num null-val pending">—</td>'}
+        <td class="num" style="${hasPaid && p.paid_spend != null ? 'color:#5856D6;font-weight:600' : 'color:#C7C7CC'}">${hasPaid && p.paid_spend != null ? '₹' + p.paid_spend.toFixed(2) : '—'}</td>
+        <td class="num" style="color:#8E8E93">${cpr || '—'}</td>
+        <td style="text-align:right;padding-right:14px">
+          <button class="refresh-btn" title="Fetch paid stats from Ads API" onclick="fetchPaidStatsRow('${p.id}', this)">↻</button>
+        </td>
+      </tr>`;
+    }
+
+    function buildBoostedSection(posts) {
+      const boosted = posts.filter(p => p.is_boosted);
+      const section = document.getElementById('boosted-section');
+      if (!boosted.length) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      document.getElementById('boosted-table-body').innerHTML = boosted.map(boostedRowHtml).join('');
+    }
+
+    function fetchPaidStatsRow(postId, btn) {
+      btn.disabled = true;
+      btn.textContent = '…';
+      fetch(`/api/posts/${postId}/paid-stats`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            btn.textContent = '↻';
+            btn.disabled = false;
+            alert('Error: ' + data.error);
+            return;
+          }
+          // Update the row in-place
+          const enriched = {
+            ...allPosts.find(p => p.id === postId),
+            paid_reach: data.paid_reach,
+            paid_impressions: data.paid_impressions,
+            paid_clicks: data.paid_clicks,
+            paid_spend: data.paid_spend,
+            paid_stats_fetched_at: data.paid_stats_fetched_at,
+          };
+          const row = document.getElementById(`boosted-row-${postId}`);
+          if (row) row.outerHTML = boostedRowHtml(enriched);
+        })
+        .catch(() => { btn.textContent = '↻'; btn.disabled = false; });
     }
 
     load();
