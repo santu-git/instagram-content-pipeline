@@ -343,6 +343,27 @@ app.post('/api/publish/:id', async (req, res) => {
   }
 });
 
+// Retry a stuck "publishing" post — publishes immediately
+app.post('/api/retry/:id', async (req, res) => {
+  const { id } = req.params;
+  const db = getDb();
+  const post = db.prepare('SELECT status FROM scheduled_posts WHERE id = ?').get(id);
+  db.close();
+
+  if (!post) return res.status(404).json({ error: `Post "${id}" not found` });
+  if (post.status !== 'publishing') {
+    return res.status(400).json({ error: `Post is in "${post.status}" status, not stuck at "publishing"` });
+  }
+
+  try {
+    const result = await publishNow(id);
+    res.json(result);
+  } catch (err) {
+    console.error('Retry publish failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Schedule a post via Instagram native scheduling
 app.post('/api/schedule', async (req, res) => {
   const { id, iso_datetime } = req.body;

@@ -76,6 +76,7 @@ html, body {
 .badge[data-status="uploaded"]  { background: #E3F0FF; color: #0A58C2; }
 .badge[data-status="approved"]  { background: #E3F7E9; color: #1A6E3A; }
 .badge[data-status="scheduled"] { background: #FFF3DE; color: #8A4800; }
+.badge[data-status="publishing"] { background: #FFE6E6; color: #C0392B; font-weight: 600; }
 .badge[data-status="published"] { background: #4A5240; color: #FAFAFA; }
 .badge[data-status="rejected"]  { background: #FDE8E8; color: #C0392B; }
 .badge[data-status="cancelled"] { background: #F2F2F7; color: #8E8E93; }
