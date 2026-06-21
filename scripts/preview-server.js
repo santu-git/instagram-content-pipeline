@@ -225,9 +225,12 @@ app.post('/api/draft', (req, res) => {
   const db = getDb();
   db.prepare(`
     INSERT OR REPLACE INTO scheduled_posts
-      (id, topic, template, category, status, slides_json, created_at)
-    VALUES (?, ?, ?, ?, 'draft', ?, datetime('now'))
-  `).run(carousel.id, carousel.topic || null, carousel.template, carousel.category || null, JSON.stringify(carousel));
+      (id, topic, template, category, status, slides_json, caption, hashtags, created_at)
+    VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, datetime('now'))
+  `).run(
+    carousel.id, carousel.topic || null, carousel.template, carousel.category || null,
+    JSON.stringify(carousel), carousel.caption || null, carousel.hashtags || null
+  );
   db.close();
 
   res.json({
