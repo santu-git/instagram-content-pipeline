@@ -19,7 +19,7 @@ async function generatePost(carouselJson) {
   } = process.env;
 
   if (!carouselJson.id) carouselJson.id = uuidv4();
-  const { id, template, topic, category, tag, handle, slides } = carouselJson;
+  const { id, template, topic, category, tag, handle, caption, hashtags, slides } = carouselJson;
 
   if (!template || !slides?.length) {
     throw new Error('carousel_json must include template and slides');
@@ -89,9 +89,9 @@ async function generatePost(carouselJson) {
   const db = new Database(path.resolve(DB_PATH));
   db.prepare(`
     INSERT OR REPLACE INTO scheduled_posts
-      (id, topic, template, category, status, spaces_folder, slides_json, created_at)
-    VALUES (?, ?, ?, ?, 'uploaded', ?, ?, datetime('now'))
-  `).run(id, topic || null, template, category || null, spacesFolder, JSON.stringify(carouselJson));
+      (id, topic, template, category, status, spaces_folder, slides_json, caption, hashtags, created_at)
+    VALUES (?, ?, ?, ?, 'uploaded', ?, ?, ?, ?, datetime('now'))
+  `).run(id, topic || null, template, category || null, spacesFolder, JSON.stringify(carouselJson), caption || null, hashtags || null);
   db.close();
 
   const baseUrl = (NODE_APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
